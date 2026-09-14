@@ -1,0 +1,6 @@
+{
+  "appId": "com.veriodetect.app",
+  "appName": "VerioDetect",
+  "webDir": "www",
+  "ios": {"contentInset": "never"}
+}

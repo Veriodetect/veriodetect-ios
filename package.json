@@ -1,0 +1,22 @@
+{
+  "name": "veriodetect-ios",
+  "version": "0.7.6",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify.mjs",
+    "sync:ios": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.4.1",
+    "@capacitor/ios": "8.4.1",
+    "@capacitor/share": "8.0.0",
+    "@capacitor/clipboard": "8.0.0",
+    "fflate": "0.8.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.4.1",
+    "esbuild": "0.25.9"
+  }
+}

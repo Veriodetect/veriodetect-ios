@@ -1,0 +1,11 @@
+node_modules/
+www/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/Pods/
+build/
+*.p8
+*.p12
+*.mobileprovision
+.env*
+.DS_Store

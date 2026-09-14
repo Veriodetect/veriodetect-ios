@@ -1,0 +1,39 @@
+workflows:
+  ios-testflight:
+    name: VerioDetect - TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: VerioDetect Apple
+    environment:
+      xcode: latest
+      node: 22
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.veriodetect.app
+      vars:
+        # Increase if moving this project to a new Codemagic application.
+        BUILD_NUMBER_BASE: "100"
+    scripts:
+      - name: Install locked dependencies
+        script: npm ci
+      - name: Bundle the existing app
+        script: npm run build
+      - name: Sync native project
+        script: npx cap sync ios
+      - name: Set iOS version and build number
+        script: python3 scripts/configure-ios.py
+      - name: Verify packaged source
+        script: npm run verify
+      - name: Apply Apple signing profiles
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: xcode-project build-ipa --project ios/App/App.xcodeproj --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false

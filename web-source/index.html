@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#f7f9fc">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VerioDetect">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>VerioDetect</title>
+</head>
+<body>
+  <div class="app-shell">
+    <main>
+      <section class="screen active" id="homeScreen" aria-label="Home">
+        <header class="topbar brandbar">
+          <div>
+            <div class="brand">Verio<span>Detect</span></div>
+            <p>Detect signals of undisclosed<br>AI-agent control.</p>
+          </div>
+          <button class="icon-btn" id="settingsBtn" aria-label="About">⚙︎</button>
+        </header>
+
+        <section class="hero-card card">
+          <div class="doc-icon">▤</div>
+          <h1>Analyse a conversation<br>or X account</h1>
+          <p>Conversation timing with M0/M1 or posting behaviour with experimental M2</p>
+          <button class="primary large" id="pasteBtn">▣&nbsp;&nbsp;Paste from Clipboard</button>
+          <button class="secondary large" id="xModeBtn">𝕏&nbsp;&nbsp;Analyse X Posts</button>
+          <button class="secondary large" id="importBtn">▧&nbsp;&nbsp;Import Conversation File</button>
+          <input type="file" id="fileInput" accept=".txt,.log,.csv,text/plain" hidden>
+          <div class="privacy">⌾ <span>Analysis stays on this iPhone.<br>Your conversation is not uploaded.</span></div>
+        </section>
+
+        <div class="section-title"><h2>Recent analyses</h2><button class="text-btn" data-tab="history">See all ›</button></div>
+        <section class="recent-list card" id="recentList"></section>
+      </section>
+
+      <section class="screen" id="analysisScreen" aria-label="Analysis">
+        <header class="topbar compact"><button class="text-btn" id="cancelAnalysis">Cancel</button><button class="primary pill" id="analyseBtn">Analyze</button></header>
+        <h1 class="page-title">Conversation</h1>
+        <p class="page-subtitle">Paste the conversation you want to analyse.</p>
+        <textarea id="thread" placeholder="Paste a WhatsApp export or timestamped conversation here…"></textarea>
+        <div class="char-count"><span id="charCount">0</span> characters</div>
+
+        <section class="options card">
+          <div class="option-title">Analysis options <span>›</span></div>
+          <div class="option-row"><span>✣&nbsp;&nbsp;Model</span><b>M0 + M1.1</b></div>
+          <div class="option-row"><span>◎&nbsp;&nbsp;Language</span><b>Auto-detect</b></div>
+          <div class="option-row"><span>◉&nbsp;&nbsp;Focus</span><b>Behavioral change</b></div>
+        </section>
+        <div class="privacy standalone">⌾ <span>Analysis runs locally on this iPhone.<br>No conversation data leaves your device.</span></div>
+      </section>
+
+      <section class="screen" id="xAnalysisScreen" aria-label="X account analysis">
+        <header class="topbar compact"><button class="text-btn" id="cancelXAnalysis">Cancel</button><button class="primary pill" id="analyseXBtn">Analyze</button></header>
+        <h1 class="page-title">X Account</h1>
+        <p class="page-subtitle">Enter a public X handle, import an X archive/API export, or paste timestamped posts. M2 analyses posting behaviour, not authorship.</p>
+        <section class="card x-handle-card">
+          <div class="option-title">Analyse public X account</div>
+          <div class="x-handle-row"><input id="xHandle" class="x-handle-input" placeholder="@username" autocapitalize="none" autocomplete="off" spellcheck="false"><button class="primary pill" id="xFetchBtn">Fetch</button></div>
+          <div class="x-fetch-options"><label>Posts <select id="xFetchCount" class="inline-select"><option value="100">100</option><option value="250" selected>250</option><option value="500">500</option><option value="1000">1,000</option></select></label><button class="secondary mini" id="xCheckBtn" type="button">Check X connection</button></div>
+          <div class="x-import-status" id="xConnectionStatus">Connection not checked.</div>
+          <div class="x-import-status" id="xFetchStatus">Public posts are fetched through VerioDetect's secure server function. No X credential is stored in your browser.</div>
+        </section>
+        <div class="x-import-actions"><button class="secondary large" id="xImportBtn">▧&nbsp;&nbsp;Import X archive / JSON / CSV</button><input type="file" id="xFileInput" accept=".zip,.js,.json,.csv,.txt,application/zip,application/json,text/csv,text/plain" hidden></div>
+        <div class="x-import-status" id="xImportStatus">Or paste timestamped posts below.</div>
+        <textarea id="xPosts" placeholder="Paste posts with timestamps, X API JSON/CSV, or archive tweets.js…"></textarea>
+        <div class="char-count"><span id="xCharCount">0</span> characters</div>
+        <section class="options card">
+          <div class="option-title">Analysis options <span>›</span></div>
+          <div class="option-row"><span>✣&nbsp;&nbsp;Model</span><b>M2 experimental</b></div>
+          <div class="option-row"><span>◎&nbsp;&nbsp;Source</span><b id="xSourceLabel">X posts / archive</b></div>
+          <div class="option-row"><span>◫&nbsp;&nbsp;Activity</span><select id="xActivityFilter" class="inline-select"><option value="originals">Original posts</option><option value="originals_replies">Originals + replies</option><option value="all">All activity</option><option value="replies">Replies only</option><option value="reposts">Reposts only</option></select></div>
+          <div class="option-row"><span>◉&nbsp;&nbsp;Focus</span><b>Posting behaviour</b></div>
+        </section>
+        <div class="privacy standalone">⌾ <span>Analysis runs locally on this iPhone.<br>Post text is not written to local history.</span></div>
+      </section>
+
+      <section class="screen" id="xResultScreen" aria-label="X result">
+        <header class="topbar compact"><button class="text-btn" id="backXResult">‹ Back</button></header>
+        <h1 class="page-title">X analysis result</h1>
+        <p class="page-subtitle" id="xResultMeta">M2 · Experimental posting-behaviour model</p>
+        <section class="conclusion-card card"><span class="mini-kicker">M2 · X ACCOUNT PROFILE</span><h2 id="xProfileLabel">—</h2><h3 id="xProfileScore">—</h3><p id="xProfileCopy">—</p></section>
+        <section class="profile-card card"><div class="card-heading"><div><span class="mini-kicker">POSTING-BEHAVIOUR INDEX</span><h3>Human-like ↔ Automation-like</h3></div></div><div class="profile-labels"><span>Human-like</span><span>Automation-like</span></div><div class="profile-track"><div class="profile-gradient"></div><div class="profile-marker" id="xProfileMarker"></div></div><div class="profile-foot"><span id="xReliability">Sample strength —</span><span id="xPostCount">— posts</span></div><div class="x-filter-summary" id="xFilterSummary"></div></section>
+        <section class="card detail-section"><span class="mini-kicker">TIMESTAMP INTEGRITY</span><h3>Timing diagnostics</h3><p class="detail-intro">VerioDetect sorts X activity chronologically before calculating intervals. These diagnostics let you audit the timing series used by M2.</p><div id="xTimingDiagnostics" class="diagnostic-list"></div></section>
+        <section class="card detail-section"><span class="mini-kicker">M2 · DETAILED EVIDENCE</span><h3>What moved the profile?</h3><p class="detail-intro">These are behavioural signals from timestamps and posting patterns. They are not a probability that the account is a bot.</p><div id="xEvidenceList" class="diagnostic-list"></div></section>
+        <section class="card detail-section methodology-box"><span class="mini-kicker">LIMITATION</span><h3>Experimental M2</h3><p>M2 currently evaluates cadence regularity, bursts, time-of-day concentration, interval repetition and posting volume. v0.7.6 can ingest X archive tweets.js/ZIP, X API JSON, CSV, or timestamped text and can separate originals, replies and reposts. It does not infer identity from writing style and is not yet calibrated on a labelled human/bot dataset.</p></section>
+      </section>
+
+      <section class="screen" id="resultScreen" aria-label="Result">
+        <header class="topbar compact"><button class="text-btn" id="backResult">‹ Back</button><button class="icon-btn" id="shareResult" aria-label="Share">⇧</button></header>
+        <h1 class="page-title">Analysis result</h1>
+        <p class="page-subtitle" id="resultMeta">Local analysis</p>
+
+        <section class="conclusion-card card" id="resultSummary">
+          <span class="mini-kicker">VERIODETECT CONCLUSION</span>
+          <h2 id="conclusionProfile">—</h2>
+          <h3 id="conclusionTransition">—</h3>
+          <p id="resultExplanation">—</p>
+        </section>
+
+        <section class="profile-card card">
+          <div class="card-heading"><div><span class="mini-kicker">M0 · COUNTERPARTY PROFILE</span><h3 id="profileLabel">—</h3></div><button class="info-help stat-help" data-stat="profile" aria-label="Explain counterparty profile">ⓘ</button></div>
+          <p class="profile-copy" id="profileCopy">What does this counterparty's overall behavioural pattern look like?</p>
+          <div class="profile-labels"><span>Human-like</span><span>Automation-like</span></div>
+          <div class="profile-track"><div class="profile-gradient"></div><div class="profile-marker" id="profileMarker"></div></div>
+          <div class="profile-foot"><span id="profileScore">M0 —</span><span id="profileReliability">Reliability —</span></div>
+        </section>
+
+        <section class="handoff-card card" id="handoffCard">
+          <div class="card-heading"><div><span class="mini-kicker">M1 · HANDOFF TEST</span><h3 id="handoffVerdict">—</h3></div><button class="info-help stat-help" data-stat="pvalue" aria-label="Explain handoff evidence">ⓘ</button></div>
+          <p class="profile-copy" id="handoffCopy">Did the statistical profile change reliably during this conversation?</p>
+          <div class="evidence-scale-labels"><span>No evidence</span><span>Strong evidence</span></div>
+          <div class="evidence-scale"><div class="evidence-fill" id="evidenceFill"></div><div class="evidence-marker" id="evidenceMarker"></div></div>
+          <div class="handoff-facts"><span id="supportLabel">Support —</span><b id="pValue">p —</b></div>
+        </section>
+
+        <section class="candidate-card card" id="timelineCard">
+          <div class="card-heading"><div><span class="mini-kicker">CANDIDATE TRANSITION DETAILS</span><h3>Strongest observed change</h3></div><button class="info-help stat-help" data-stat="timeline" aria-label="Explain candidate transition">ⓘ</button></div>
+          <p class="candidate-direction" id="candidateDirection">—</p>
+          <div class="candidate-grid"><button class="stat-help" data-stat="magnitude"><span>Change magnitude</span><b id="changeMagnitude">—</b></button><button class="stat-help" data-stat="observations"><span>Before / after</span><b id="candidateObs">—</b></button></div>
+          <div class="timeline-date" id="transitionDate">Largest observed transition</div>
+          <div class="transition-support" id="transitionSupport">Statistical support —</div>
+        </section>
+
+        <div class="section-title"><h2>Key statistics</h2><button class="text-btn" id="evidenceBtn">View all ›</button></div>
+        <section class="stats card">
+          <button class="stat-help" data-stat="m0before"><span>M0 before</span><b id="m0Before">—</b></button>
+          <button class="stat-help" data-stat="m0after"><span>M0 after</span><b id="m0After">—</b></button>
+          <button class="stat-help" data-stat="observations"><span>Observations</span><b id="observations">—</b></button>
+          <button class="stat-help" data-stat="series"><span>Series</span><b id="seriesName">—</b></button>
+        </section>
+        <section class="stat-explainer card" id="statExplainer" hidden><div><span class="explain-kicker">WHAT THIS MEANS</span><button id="closeExplainer" aria-label="Close explanation">×</button></div><h3 id="explainTitle"></h3><p id="explainText"></p><small id="explainInterpretation"></small></section>
+        <button class="detail-card card" id="detailBtn"><span>▥</span><div><b>View detailed evidence</b><small>Timeline, diagnostics and methodology</small></div><span>›</span></button>
+      </section>
+
+
+      <section class="screen" id="evidenceScreen" aria-label="Detailed evidence">
+        <header class="topbar compact"><button class="text-btn" id="backEvidence">‹ Result</button><button class="icon-btn" id="shareEvidence" aria-label="Share">⇧</button></header>
+        <h1 class="page-title">Detailed evidence</h1>
+        <p class="page-subtitle" id="evidenceMeta">How VerioDetect reached this result.</p>
+
+        <section class="card detail-section">
+          <span class="mini-kicker">M0 · EVIDENCE DECOMPOSITION</span>
+          <h3>What moved the profile?</h3>
+          <p class="detail-intro">Each signal contributes toward human-like (negative) or automation-like (positive) behaviour. The bars show contribution to M0, not probability.</p>
+          <div class="axis-labels"><span>Human-like −</span><span>+ Automation-like</span></div>
+          <div id="contributionList" class="contribution-list"></div>
+        </section>
+
+        <section class="card detail-section">
+          <span class="mini-kicker">M0 · RAW DIAGNOSTICS</span>
+          <h3>Observed timing features</h3>
+          <div id="rawDiagnostics" class="diagnostic-list"></div>
+          <div class="reliability-note" id="detailReliability">—</div>
+        </section>
+
+        <section class="card detail-section">
+          <span class="mini-kicker">M1 · CHANGE-POINT TEST</span>
+          <h3>Strongest candidate transitions</h3>
+          <p class="detail-intro" id="m1MethodSummary">M1 compares M0 before and after candidate boundaries, then tests the strongest change against no-handoff surrogate conversations.</p>
+          <div id="candidateList" class="candidate-list"></div>
+        </section>
+
+        <section class="card detail-section methodology-box">
+          <span class="mini-kicker">HOW TO READ THIS</span>
+          <h3>Methodology & limits</h3>
+          <p><b>M0</b> is a weighted experimental evidence index. Its weights and thresholds are engineering hypotheses and are not calibrated human/AI probabilities.</p>
+          <p><b>M1.1</b> searches for the largest M0 change and uses up to 100 within-conversation no-handoff surrogates to estimate a permutation p-value.</p>
+          <p><b>Interpretation:</b> a low p-value supports the existence of an unusual behavioural transition. It does not prove that an AI agent took control.</p>
+          <p class="muted">Conversation text is not stored in local history. Detailed evidence stores only derived statistics.</p>
+        </section>
+      </section>
+
+      <section class="screen" id="historyScreen" aria-label="History">
+        <header class="topbar compact"><h1 class="page-title inline">History</h1><button class="text-btn danger" id="clearHistory">Clear</button></header>
+        <p class="page-subtitle">Saved analyses can be reopened. Conversation text is not stored.</p>
+        <section class="recent-list card" id="historyList"></section>
+      </section>
+
+      <section class="screen" id="aboutScreen" aria-label="About">
+        <header class="topbar compact"><button class="text-btn" id="backAbout">‹ Back</button></header>
+        <h1 class="page-title">About VerioDetect</h1>
+        <section class="card about-copy">
+          <h3>Experimental evidence, not proof</h3>
+          <p>VerioDetect analyses observable conversation timing and behavioural patterns. It does not identify a person and it cannot prove that a counterparty is an AI agent.</p>
+          <p>M0 is the frozen temporal evidence index. M1.1 tests the strongest behavioural transition against within-conversation no-handoff surrogates. Short extreme transitions may be surfaced without a p-value when there is insufficient data for M1.1.</p>
+          <p><b>Privacy:</b> analysis is performed in your browser on this device. Conversation text is not written to local history.</p>
+          <p class="muted">VerioDetect v0.7.5 · M0/M1 + experimental M2</p>
+        </section>
+      </section>
+    </main>
+
+    <nav class="tabbar" id="tabbar">
+      <button class="tab active" data-tab="home"><span>⌂</span><small>Home</small></button>
+      <button class="tab" data-tab="history"><span>◷</span><small>History</small></button>
+      <button class="tab" data-tab="about"><span>▢</span><small>About</small></button>
+    </nav>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

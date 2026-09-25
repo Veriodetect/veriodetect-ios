@@ -11,9 +11,9 @@
   "netlify/functions/x-posts.mjs": "0fe46c27db7415290e86d3adbdf3e72cdd57bb8f069834afe936ed8d4e4a42ab",
   "netlify/functions/x-status.mjs": "3a68da668418c1afbc03f21d2c6d1f7d391b6dbdf181596deffb89ab58630e53",
   "netlify.toml": "7ee154bcc11cd3b09334fb985541e117e0ad83b68bf750f580258f5d8b291153",
-  "README.md": "7e0577fbb0be4a6744cc8bf7b217b4d80328f80bfc56cb0f8d8648e8ca981df5",
+  "README.md": "1bacf8a4188f106ba397231111483a032aea6232ac99a17c049ec2e4bad88b1b",
   "styles.css": "84a8e00bed48654b6f047a4fd31f4954e9add2113a46c23bceb9d68f29938d2c",
-  "sw.js": "c845524ca20ebf8432a5862fd308ebde1ca850ca62ed79e65bff7c73123a330c",
+  "sw.js": "42342aea6f8180bfce9d56b9562c2d3b36c133ed10e5f59da07a3455c99be466",
   "_headers": "331f8451de59d74f514030fdabd8c2e0c9d137244d1922937b5fc31c06d8a956",
   "_redirects": "66584af744075248a042165adbdbd6a0551fa708a85650ea1e3e777eee17080c"
 }

@@ -51,6 +51,7 @@
           <div class="option-row"><span>✣&nbsp;&nbsp;Model</span><b>M0 + M1.1</b></div>
           <div class="option-row"><span>◎&nbsp;&nbsp;Language</span><b>Auto-detect</b></div>
           <div class="option-row"><span>◉&nbsp;&nbsp;Focus</span><b>Behavioral change</b></div>
+          <div class="option-row" id="participantRow" hidden><span>◎&nbsp;&nbsp;Participant</span><select id="participantSelect" class="inline-select"><option value="">Choose participant…</option></select></div>
         </section>
         <div class="privacy standalone">⌾ <span>Analysis runs locally on this iPhone.<br>No conversation data leaves your device.</span></div>
       </section>
@@ -62,7 +63,8 @@
         <section class="card x-handle-card">
           <div class="option-title">Analyse public X account</div>
           <div class="x-handle-row"><input id="xHandle" class="x-handle-input" placeholder="@username" autocapitalize="none" autocomplete="off" spellcheck="false"><button class="primary pill" id="xFetchBtn">Fetch</button></div>
-          <div class="x-fetch-options"><label>Posts <select id="xFetchCount" class="inline-select"><option value="100">100</option><option value="250" selected>250</option><option value="500">500</option><option value="1000">1,000</option></select></label><button class="secondary mini" id="xCheckBtn" type="button">Check X connection</button></div>
+          <div class="x-fetch-options"><label>Authorized beta access <input id="xAccessCode" class="x-handle-input" type="password" placeholder="Tester code" autocomplete="off"></label><button class="secondary mini" id="xCheckBtn" type="button">Check X connection</button></div>
+          <div class="x-import-status">Live X retrieval is restricted to authorized beta testers, with a server-enforced maximum of 100 recent activities per analysis.</div>
           <div class="x-import-status" id="xConnectionStatus">Connection not checked.</div>
           <div class="x-import-status" id="xFetchStatus">Public posts are fetched through VerioDetect's secure server function. No X credential is stored in your browser.</div>
         </section>
@@ -88,7 +90,7 @@
         <section class="profile-card card"><div class="card-heading"><div><span class="mini-kicker">POSTING-BEHAVIOUR INDEX</span><h3>Human-like ↔ Automation-like</h3></div></div><div class="profile-labels"><span>Human-like</span><span>Automation-like</span></div><div class="profile-track"><div class="profile-gradient"></div><div class="profile-marker" id="xProfileMarker"></div></div><div class="profile-foot"><span id="xReliability">Sample strength —</span><span id="xPostCount">— posts</span></div><div class="x-filter-summary" id="xFilterSummary"></div></section>
         <section class="card detail-section"><span class="mini-kicker">TIMESTAMP INTEGRITY</span><h3>Timing diagnostics</h3><p class="detail-intro">VerioDetect sorts X activity chronologically before calculating intervals. These diagnostics let you audit the timing series used by M2.</p><div id="xTimingDiagnostics" class="diagnostic-list"></div></section>
         <section class="card detail-section"><span class="mini-kicker">M2 · DETAILED EVIDENCE</span><h3>What moved the profile?</h3><p class="detail-intro">These are behavioural signals from timestamps and posting patterns. They are not a probability that the account is a bot.</p><div id="xEvidenceList" class="diagnostic-list"></div></section>
-        <section class="card detail-section methodology-box"><span class="mini-kicker">LIMITATION</span><h3>Experimental M2</h3><p>M2 currently evaluates cadence regularity, bursts, time-of-day concentration, interval repetition and posting volume. v0.7.6 can ingest X archive tweets.js/ZIP, X API JSON, CSV, or timestamped text and can separate originals, replies and reposts. It does not infer identity from writing style and is not yet calibrated on a labelled human/bot dataset.</p></section>
+        <section class="card detail-section methodology-box"><span class="mini-kicker">LIMITATION</span><h3>Experimental M2</h3><p>M2 currently evaluates cadence regularity, bursts, time-of-day concentration, interval repetition and posting volume. v0.7.8 can ingest X archive tweets.js/ZIP, X API JSON, CSV, or timestamped text and can separate originals, replies and reposts. It does not infer identity from writing style and is not yet calibrated on a labelled human/bot dataset.</p></section>
       </section>
 
       <section class="screen" id="resultScreen" aria-label="Result">
@@ -108,7 +110,7 @@
           <p class="profile-copy" id="profileCopy">What does this counterparty's overall behavioural pattern look like?</p>
           <div class="profile-labels"><span>Human-like</span><span>Automation-like</span></div>
           <div class="profile-track"><div class="profile-gradient"></div><div class="profile-marker" id="profileMarker"></div></div>
-          <div class="profile-foot"><span id="profileScore">M0 —</span><span id="profileReliability">Reliability —</span></div>
+          <div class="profile-foot"><span id="profileScore">M0 —</span><span id="profileReliability">Sample strength —</span></div>
         </section>
 
         <section class="handoff-card card" id="handoffCard">

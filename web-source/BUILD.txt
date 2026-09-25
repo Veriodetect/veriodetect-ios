@@ -1,2 +1,2 @@
-VerioDetect v0.7.6
-Timestamp-audited M2: chronological sorting, integrity diagnostics, Sample strength label.
+VerioDetect v0.7.8-secure-beta
+Authenticated arbitrary-public-handle X retrieval, server-fixed 100-post ceiling, no pagination, IP cost guard. Participant selection retained. M0/M1.1 mathematics unchanged.

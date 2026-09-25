@@ -1,9 +1,10 @@
-import {parseWhatsApp,extractTemporalFeatures,evidenceIndex} from './engine.js?v=075';
-import {detectHandoffs} from './handoff.js?v=075';
-import {parseXPosts,parseXStructured,filterXPosts,analyseM2} from './m2.js?v=076';
+import {parseWhatsApp,extractTemporalFeatures,evidenceIndex} from './engine.js?v=078';
+import {detectHandoffs} from './handoff.js?v=078';
+import {parseXPosts,parseXStructured,filterXPosts,analyseM2} from './m2.js?v=078';
 import {unzipSync,strFromU8} from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const HISTORY='veriodetect.v06.history';
+const X_CODE='veriodetect.x.beta.code';
 let latest=null;
 const sg=x=>`${x>0?'+':''}${Number(x).toFixed(2)}`;
 const fmt=x=>new Date(x).toLocaleString([],{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -15,7 +16,7 @@ function item(x){const reopenable=!!x.explanation;return `<button class="recent-
 function renderHistory(){const h=history();$('#historyList').innerHTML=h.length?h.map(item).join(''):'<div class="empty">No saved analyses yet.</div>';$('#recentList').innerHTML=h.length?h.slice(0,3).map(item).join(''):'<div class="empty">Your first result will appear here.</div>';$$('.history-open').forEach(b=>b.onclick=()=>{const r=history().find(x=>x.id===b.dataset.id);if(r?.explanation)renderResult(r)})}
 function renderResult(r){latest=r;$('#resultMeta').textContent=`${r.sender} · ${r.at?fmt(r.at):'local analysis'}`;$('#m0Before').textContent=r.before;$('#m0After').textContent=r.after;$('#observations').textContent=r.obs;$('#candidateObs').textContent=r.obs;$('#seriesName').textContent=r.sender;$('#changeMagnitude').textContent=r.mag;
  const ps=Number.isFinite(Number(r.profileScore))?Number(r.profileScore):null, pr=Number.isFinite(Number(r.profileReliability))?Number(r.profileReliability):null;
- $('#profileLabel').textContent=r.profileLabel||'Profile unavailable';$('#profileCopy').textContent=r.profileCopy||'Re-run this conversation to calculate its overall counterparty profile.';$('#profileScore').textContent=ps===null?'M0 —':`Overall M0 ${sg(ps)}`;$('#profileReliability').textContent=pr===null?'Reliability —':`Reliability ${Math.round(pr*100)}%`;$('#profileMarker').style.left=(r.profilePosition??50)+'%';
+ $('#profileLabel').textContent=r.profileLabel||'Profile unavailable';$('#profileCopy').textContent=r.profileCopy||'Re-run this conversation to calculate its overall counterparty profile.';$('#profileScore').textContent=ps===null?'M0 —':`Overall M0 ${sg(ps)}`;$('#profileReliability').textContent=pr===null?'Sample strength —':`Sample strength ${Math.round(pr*100)}%`;$('#profileMarker').style.left=(r.profilePosition??50)+'%';
  const pnum=parseFloat(r.p), tested=!!r.time&&Number.isFinite(pnum), strong=tested&&pnum<.05, moderate=tested&&pnum>=.05&&pnum<.10;
  const verdict=!r.time?'No reliable handoff detected':strong?'Statistically supported transition':moderate?'Possible transition — limited support':'No reliable handoff detected';
  const support=!r.time?'No testable transition':strong?'Strong statistical support':moderate?'Moderate statistical support':tested?'Low statistical support':'Insufficient data to validate';
@@ -27,21 +28,22 @@ function enterAnalysis(text=''){show('analysis');if(text)$('#thread').value=text
 let xImportedPosts=null,xImportedName='';
 $('#xModeBtn').onclick=()=>show('xAnalysis');
 $('#cancelXAnalysis').onclick=()=>show('home');
-async function apiJSON(url){
- const res=await fetch(url,{headers:{accept:'application/json'}});
+async function apiJSON(url,{xAuth=false}={}){
+ const headers={accept:'application/json'}; if(xAuth){const code=$('#xAccessCode')?.value.trim()||localStorage.getItem(X_CODE)||'';if(!code)throw new Error('Enter your authorized beta tester code first.');headers.authorization='Bearer '+code;localStorage.setItem(X_CODE,code)}
+ const res=await fetch(url,{headers});
  const text=await res.text(); let data={}; try{data=text?JSON.parse(text):{}}catch{throw new Error(`Server returned ${res.status} instead of JSON. The Netlify Function may not be deployed.`)}
  if(!res.ok)throw new Error(data.error||`Request failed (HTTP ${res.status}).`); return data;
 }
 async function checkXConnection(){
  const el=$('#xConnectionStatus'); el.className='x-import-status status-checking'; el.textContent='Checking X connection…';
- try{const d=await apiJSON('/api/x-status');el.className='x-import-status status-ok';el.textContent=d.message||'X API connected ✓';return true}
+ try{const d=await apiJSON('/api/x-status',{xAuth:true});el.className='x-import-status status-ok';el.textContent=d.message||'X API connected ✓';return true}
  catch(e){el.className='x-import-status status-error';el.textContent=e.message;return false}
 }
 $('#xCheckBtn').onclick=checkXConnection;
 $('#xFetchBtn').onclick=async()=>{
  const raw=$('#xHandle').value.trim(); const username=raw.replace(/^@/,''); if(!username){$('#xFetchStatus').textContent='Enter a public X handle first.';return}
- const btn=$('#xFetchBtn'), count=$('#xFetchCount').value; btn.disabled=true;btn.textContent='Fetching…';$('#xFetchStatus').textContent=`Fetching up to ${count} recent activities from @${username}…`;
- try{const data=await apiJSON(`/api/x-posts?username=${encodeURIComponent(username)}&count=${encodeURIComponent(count)}`);
+ const btn=$('#xFetchBtn'); btn.disabled=true;btn.textContent='Fetching…';$('#xFetchStatus').textContent=`Requesting an authorized recent sample from @${username}…`;
+ try{const data=await apiJSON(`/api/x-posts?username=${encodeURIComponent(username)}`,{xAuth:true});
   xImportedPosts=(data.posts||[]).map(p=>{const time=new Date(p.created_at).getTime();return {...p,time,timestamp:time}}).filter(p=>Number.isFinite(p.time));xImportedName='@'+(data.account?.username||username);if(!xImportedPosts.length)throw new Error('No timestamped public posts were returned.');
   const counts=xImportedPosts.reduce((a,p)=>(a[p.type]=(a[p.type]||0)+1,a),{});$('#xFetchStatus').className='x-import-status status-ok';$('#xFetchStatus').textContent=`Fetched ${xImportedPosts.length} activities from ${xImportedName}: ${counts.original||0} originals, ${counts.reply||0} replies, ${counts.repost||0} reposts.`;$('#xImportStatus').textContent='Public X account loaded. Choose an Activity filter, then Analyze.';$('#xSourceLabel').textContent='Public X account';$('#xPosts').value='';$('#xCharCount').textContent='0';
  }catch(err){xImportedPosts=null;xImportedName='';$('#xFetchStatus').className='x-import-status status-error';$('#xFetchStatus').textContent=err.message}finally{btn.disabled=false;btn.textContent='Fetch'}
@@ -76,10 +78,13 @@ $('#evidenceBtn').onclick=$('#detailBtn').onclick=()=>renderDetailedEvidence(lat
 $('#backEvidence').onclick=()=>show('result');
 $('#shareEvidence').onclick=()=>$('#shareResult').click();
 function classify(e){if(e.n_responses<8)return {headline:'Insufficient evidence',evidence:'LOW EVIDENCE'};if(e.evidence_index>=1)return{headline:'High automation signal',evidence:'ELEVATED EVIDENCE'};if(e.evidence_index>=.25)return{headline:'Elevated automation signal',evidence:'MODERATE EVIDENCE'};if(e.evidence_index<=-.75)return{headline:'Low automation signal',evidence:'LOW EVIDENCE'};return{headline:'Mixed behavioral signal',evidence:'LOW EVIDENCE'}}
+$('#thread').addEventListener('input',()=>{ $('#participantRow').hidden=true;$('#participantSelect').innerHTML='<option value="">Choose participant…</option>'; });
 $('#analyseBtn').onclick=()=>{
  const text=$('#thread').value.trim();if(!text){alert('Paste a conversation first.');return}
  const msgs=parseWhatsApp(text),f=extractTemporalFeatures(msgs),entries=Object.entries(f.by_sender||{}).sort((a,b)=>(b[1].n_responses||0)-(a[1].n_responses||0));
- const [name,x]=entries[0]||['Unknown',{n_responses:0}],e=evidenceIndex(x),h=detectHandoffs(msgs),b=h.best,sb=h.sparse_best;
+ if(!entries.length){alert('No timestamped participants could be parsed from this conversation.');return}
+ const sel=$('#participantSelect'); if(entries.length>1&&!sel.value){sel.innerHTML='<option value="">Choose participant…</option>'+entries.map(([n,v])=>`<option value="${esc(n)}">${esc(n)} · ${v.n_responses||0} measurable responses</option>`).join('');$('#participantRow').hidden=false;sel.focus();alert('Choose the participant you want VerioDetect to assess.');return}
+ const name=sel.value||entries[0][0],x=f.by_sender[name]||{n_responses:0},e=evidenceIndex(x),h=detectHandoffs(msgs,name),b=h.best,sb=h.sparse_best;
  let headline,evidence,explanation,mag='—',pv='—',before='—',after='—',obs='—',time=null,left='Human-like',right='Automation-like',cut=50;
  if(b){
    const strong=b.confidence!=='LOW'; headline=strong?'Possible control change':'No statistically strong control change'; evidence=`${b.confidence} EVIDENCE`; explanation=strong?'A behavioral transition is unusual under the current no-change test. Verify context before drawing conclusions.':'The largest observed behavioral transition is not statistically unusual under the current permutation test.';mag=b.magnitude.toFixed(2);pv=b.p_value.toFixed(3);before=sg(b.before_score);after=sg(b.after_score);obs=`${b.before_n} → ${b.after_n}`;time=b.boundary_time;left=b.before_state;right=b.after_state;cut=Math.max(12,Math.min(88,b.boundary_index/h.turns.length*100));
@@ -103,7 +108,7 @@ function renderDetailedEvidence(r){
  const f=r.rawFeatures||{};
  const rows=[['Measurable responses',f.n_responses],['Median response latency',f.latency_median_s==null?'—':`${val(f.latency_median_s,1)} s`],['10th–90th percentile latency',f.latency_p10_s==null?'—':`${val(f.latency_p10_s,1)}–${val(f.latency_p90_s,1)} s`],['Replies within 5 seconds',f.instant_5s_rate==null?'—':`${Math.round(f.instant_5s_rate*100)}%`],['Median reply length',f.response_length_median_chars==null?'—':`${Math.round(f.response_length_median_chars)} chars`],['Apparent output speed',f.chars_per_second_median==null?'—':`${val(f.chars_per_second_median)} chars/s`],['Reply length ↔ latency correlation',val(f.corr_latency_response_length)],['Prompt length ↔ latency correlation',val(f.corr_latency_prompt_length)],['Log-latency variability',val(f.log_latency_sd)]];
  $('#rawDiagnostics').innerHTML=rows.map(([a,b])=>`<div class="diagnostic-row"><span>${esc(a)}</span><b>${esc(b)}</b></div>`).join('');
- $('#detailReliability').textContent=`Overall M0 ${Number.isFinite(Number(r.profileScore))?sg(r.profileScore):'—'} · Reliability ${Number.isFinite(Number(r.profileReliability))?Math.round(r.profileReliability*100)+'%':'—'}. Reliability reflects evidence quantity, not probability that the classification is correct.`;
+ $('#detailReliability').textContent=`Overall M0 ${Number.isFinite(Number(r.profileScore))?sg(r.profileScore):'—'} · Sample strength ${Number.isFinite(Number(r.profileReliability))?Math.round(r.profileReliability*100)+'%':'—'}. Sample strength reflects evidence quantity, not probability that the classification is correct.`;
  const ds=r.m1Diagnostics||[];
  $('#candidateList').innerHTML=ds.length?ds.map((d,i)=>`<div class="candidate-detail"><div class="candidate-detail-head"><b>${i===0?'Strongest candidate':'Candidate '+(i+1)}</b><span>${d.time?fmt(d.time):'—'}</span></div><div class="candidate-detail-values"><span>M0 ${sg(d.before)} → ${sg(d.after)}</span><span>|Δ| ${Math.abs(Number(d.delta)).toFixed(2)} · ${d.before_n}→${d.after_n} obs.</span></div></div>`).join(''):'<div class="empty">No full M1 diagnostic series was saved for this result.</div>';
  const pn=Number.isFinite(Number(r.m1Permutations))?Number(r.m1Permutations):null, pp=parseFloat(r.p);

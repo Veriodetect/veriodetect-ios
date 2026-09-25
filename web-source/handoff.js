@@ -87,8 +87,8 @@ function nullPValue(t,sender,observedMag){
   return {p:(1+ge)/(1+valid),valid};
 }
 
-export function detectHandoffs(msgs){
-  const t=turns(msgs),ss=[...new Set(t.map(x=>x.sender))],out=[],sparse=[];
+export function detectHandoffs(msgs,targetSender=null){
+  const t=turns(msgs),all=[...new Set(t.map(x=>x.sender))],ss=targetSender?[targetSender]:all,out=[],sparse=[];
   for(const sender of ss){
     const cs=candidates(t,sender);
     if(!cs.length){

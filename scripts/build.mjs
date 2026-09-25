@@ -11,7 +11,6 @@ const replace = (a,b) => {if(!code.includes(a)) throw Error(`Source changed: ${a
 replace("'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm'", "'fflate'");
 replace("const res=await fetch(url,{headers});", `const reply=await CapacitorHttp.get({url:new URL(url,${JSON.stringify(u.origin)}).href,headers,responseType:'text',connectTimeout:15000,readTimeout:60000});
  const res={status:reply.status,ok:reply.status>=200&&reply.status<300,text:async()=>typeof reply.data==='string'?reply.data:JSON.stringify(reply.data)};`);
- const res={status:reply.status,ok:reply.status>=200&&reply.status<300,text:async()=>typeof reply.data==='string'?reply.data:JSON.stringify(reply.data)};`);
 replace('await navigator.clipboard.readText()', '(await Clipboard.read()).value');
 replace("if(navigator.share)await navigator.share({title:'VerioDetect result',text});else await navigator.clipboard.writeText(text)", "await Share.share({title:'VerioDetect result',text})");
 replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});", '// Native app uses bundled assets; no service worker.');

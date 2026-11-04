@@ -19,3 +19,21 @@ Proposed upgrade requires owner approval before any production mutation:
 7. After successful verification, set backendValidated true in the release profile, build ios-app-store from the final approved source, install/test that exact build, complete App Store disclosures and private reviewer access, and submit to Apple using manual release. Backend promotion does not itself submit or publish the iOS app.
 
 No production backend, database, credential or code configuration was changed by this plan. Release build remains blocked until approval/provisioning/validation.
+
+## Production approval — 5 November 2026
+
+The owner explicitly approved upgrading veriodetectbeta.netlify.app to the tested approval/quota/deletion system using a separate production database, after being told legacy shared codes would need individual replacements. Do not request this same production approval again unless scope changes.
+
+Current production rollback deploy recorded read-only: 6ab62019d312badadd38aca3
+https://app.netlify.com/projects/veriodetectbeta/deploys/6ab62019d312badadd38aca3
+Current deployment is from Netlify Drop (25 September 2026). No production settings or deployments have been changed yet.
+
+Upstash console is awaiting the owner’s sign-in in the in-app browser. Once signed in, create the isolated production database, keep its credentials and a fresh admin token server-side in Netlify, then continue the approved deployment/validation plan. Do not accept a paid plan or new spending commitment without a specific authorized budget.
+
+## Database provisioning — 5 November 2026
+
+Owner approved $20/month per Redis database (up to $40 total) after the console rejected $5 as below the $20 minimum. Card added by owner; staging converted to pay-as-you-go. Saved and verified staging cap $20. Created isolated VerioDetect Production in AWS Frankfurt, pay-as-you-go, with $20 cap; declined $200 Prod Pack. Production database ID: 81c67fbd-3f37-4e03-851a-0be78dc5090a. No user records migrated.
+
+Owner explicitly approved giving veriodetectbeta server read/write access to this database. Saved UPSTASH_REDIS_REST_URL as a Netlify secret in production context only. No staging credentials reused. Token entry remains pending owner handoff because browser clipboard copy did not yield a usable token; never save masked text as a token. VERIO_ADMIN_TOKEN also remains to be set privately by owner. Existing X and legacy code variables preserved. No production deployment yet. backendValidated remains false.
+
+Production browser packaging now supports SITE_CHANNEL=production for current version, approved-access language, privacy/support links and registration notice. Default staging packaging remains available; original model source unchanged. npm run package:backend (both channels) and npm run verify pass locally.

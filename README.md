@@ -1,5 +1,7 @@
 # VerioDetect iOS v0.7.9 — staging preparation
 
+Public-release preparation is documented in [release/READINESS.md](release/READINESS.md). Internal Codemagic build 117 compiled, signed and uploaded successfully; the owner confirmed the core device checks. The `ios-app-store` workflow remains blocked until the release backend and published privacy/support URLs are validated. Keep manual approval and quotas. No production deploy is included.
+
 This feature branch packages the supplied `VerioDetect_0.7.9_Staging.zip` with the existing Capacitor iOS wrapper. `web-source/` preserves the ZIP bytes, including its older internal version labels. `source-hashes.json` verifies those bytes. The packaged About label and iOS build use 0.7.9.
 
 ZIP SHA-256: `0964f77f71bd3d814e3ed43c006c706f896f1993cd5bd43d93abe50d230a7486`.
@@ -19,10 +21,10 @@ Base: `ad183d10820c5d521be6a9bb6b3eaaec37bff15b` (main). M0 (`engine.js`), M1 (`
 
 Capacitor iOS asset/plugin sync and `configure-ios.py` succeeded on Windows. Windows-generated Swift package paths and generated plist edits were discarded; Codemagic regenerates them on macOS. Dependency installation could not reach npm in this session; local validation used an existing installation with 97 installed package versions matching the lockfile. A clean `npm ci` remains part of the cloud workflow.
 
-Apple compilation, signing, upload and device validation have NOT run. This is preparation, not a completed TestFlight build. See START-HERE.md for the next step.
+Initial packaging validation preceded the successful Codemagic build 117 and owner-reported device tests. See release/READINESS.md for current evidence and remaining release work; START-HERE.md records the earlier staging build instructions.
 
 ## Deployment boundaries
 
 No Netlify site is deployed by this branch. Do not deploy this repository or its source snapshot to production. Production `veriodetectbeta.netlify.app` remains unchanged. Backend approval, revocation and quota enforcement remain on the existing staging server.
 
-The staging URL returned a Netlify edge-access login page during inspection. Native API requests may encounter this same protection. Validate access on a device before inviting testers; do not embed a Netlify site password, browser cookie or bypass token. No Netlify security settings were changed.
+The staging URL originally returned a Netlify edge-access login page. The owner subsequently made staging public and verified native access-code, retrieval, revocation and quota behaviour on an iPhone. No site password, browser cookie or bypass token is embedded. Production has not been changed.

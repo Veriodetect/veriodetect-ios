@@ -48,3 +48,7 @@ The deletion flow is now implemented as a candidate; see DELETION-PLAN.md for ex
 ## Confirmed operator details
 
 Cquestra B.V., Rokin 92, 1012 KZ Amsterdam, Netherlands; info@cquestra.com. Owner selected registration/access record retention until deletion is requested, with no automatic inactivity expiry. Final provider log/backup details and production-device validation still remain.
+
+## 5 November 2026 readiness update
+
+Owner confirmed pending-request deletion and approved-access deletion on the new iOS TestFlight build: the deleted code is denied and its admin record disappears. Privacy/support pages have been updated and verified live with the operator address, retention choice and deletion instructions. privacyFinalized is now true for the published policy; backendValidated remains false because production still uses legacy shared-code configuration and lacks the new Redis/admin environment variables. See PRODUCTION-PROMOTION.md for the concrete plan requiring explicit production approval. No production change or final App Store build/submission has occurred.

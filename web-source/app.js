@@ -132,3 +132,10 @@ $('#closeExplainer').onclick=()=>{$('#statExplainer').hidden=true;$$('.stat-help
 
 renderHistory();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+// Manual beta access request (does not grant access or expose admin credentials).
+const accessRequestForm=document.querySelector('#accessRequestForm');
+if(accessRequestForm)accessRequestForm.addEventListener('submit',async event=>{
+ event.preventDefault();const button=accessRequestForm.querySelector('button[type="submit"]'),status=document.querySelector('#accessRequestMessage');button.disabled=true;status.textContent='Submitting request…';
+ try{const res=await fetch('/api/access-request',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:document.querySelector('#accessName').value,email:document.querySelector('#accessEmail').value,reason:document.querySelector('#accessReason').value})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Request failed');status.textContent=data.message;accessRequestForm.reset()}catch(e){status.textContent=e.message}finally{button.disabled=false}
+});

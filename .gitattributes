@@ -1,0 +1,7 @@
+# Preserve the supplied source bytes so SHA-256 checks work on Windows and macOS.
+*.mjs text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+web-source/** -text

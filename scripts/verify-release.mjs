@@ -11,7 +11,7 @@ try {
   assert.notEqual(r.status,0);assert.match(r.stderr,/backend is not validated/);
   r=run('scripts/build.mjs',{APP_CHANNEL:'staging',NETLIFY_ORIGIN:'https://veriodetectbeta.netlify.app'});
   assert.notEqual(r.status,0);assert.match(r.stderr,/only permits/);
-  const fixture={...JSON.parse(original),backendValidated:true,supportUrl:'https://example.invalid/support',privacyUrl:'https://example.invalid/privacy'};
+  const fixture={...JSON.parse(original),backendValidated:true,privacyFinalized:true,supportUrl:'https://example.invalid/support',privacyUrl:'https://example.invalid/privacy'};
   fs.writeFileSync('release-settings.json',JSON.stringify(fixture));
   r=run('scripts/build.mjs',{APP_CHANNEL:'release',NETLIFY_ORIGIN:fixture.backendOrigin});
   assert.equal(r.status,0,r.stderr);

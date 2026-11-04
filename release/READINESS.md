@@ -40,3 +40,7 @@ Before a deploy: record the current production deploy ID, export/backup authoriz
 - https://developer.apple.com/app-store/review/guidelines/ (complete access for review; live backend; accurate metadata; privacy)
 - https://developer.apple.com/app-store/app-privacy-details/ (data inventory and App Store disclosures)
 - https://developer.apple.com/help/app-review/guideline-reference/5-1-1-account-deletion (initiate deletion in app where account creation is supported)
+
+## Deletion implementation update
+
+The deletion flow is now implemented as a candidate; see DELETION-PLAN.md for exact scope, compatibility and validation. The candidate is not yet deployed. Legal operator confirmed by owner: Cquestra B.V. Website/support/privacy review pages are hosted at https://veriodetect-website.netlify.app/. Support: info@cquestra.com. Public privacy/support URLs are recorded in release-settings.json, but privacyFinalized remains false until the policy is final and the new backend/device tests pass.

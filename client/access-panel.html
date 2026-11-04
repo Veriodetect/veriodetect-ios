@@ -1,0 +1,13 @@
+<section class="card about-copy" aria-labelledby="deleteAccessTitle">
+ <h3 id="deleteAccessTitle">Delete my access and data</h3>
+ <p>Use your individual access code to delete your live-X access and registration records for the same approved email. A deletion receipt removes only the request it belongs to, including any access granted to it.</p>
+ <p>Expired or revoked codes can still be used for deletion. This does not delete other people’s records or information held independently by X.</p>
+ <form id="deleteAccessForm">
+  <label>Individual access code or deletion receipt <input id="deleteCredential" class="x-handle-input" type="password" autocomplete="off" required></label>
+  <label>Saved receipt <select id="deleteReceiptSelect"><option value="">Choose a saved receipt…</option></select></label>
+  <label><input id="deleteConfirmed" type="checkbox" required> I understand that deletion is permanent. My access and matching registration will be removed, and saved app data on this device will be cleared.</label>
+  <button type="submit" class="secondary mini danger">Delete my access and data</button>
+  <p id="deleteAccessMessage" role="status" aria-live="polite"></p>
+ </form>
+ <details><summary>My private deletion receipts</summary><p>Keep these privately if you need to delete a pending or rejected request from another device. Never send them to support or share them in a screenshot.</p><textarea id="deletionReceipts" readonly aria-label="Private deletion receipts"></textarea></details>
+</section>

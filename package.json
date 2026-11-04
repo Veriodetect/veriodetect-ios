@@ -7,7 +7,9 @@
     "build": "node scripts/build.mjs",
     "verify": "node scripts/verify.mjs",
     "sync:ios": "cap sync ios",
-    "verify:release": "node scripts/verify-release.mjs"
+    "verify:release": "node scripts/verify-release.mjs",
+    "verify:backend": "node scripts/verify-backend-redis.mjs",
+    "package:backend": "node scripts/package-backend.mjs"
   },
   "dependencies": {
     "@capacitor/core": "8.4.1",

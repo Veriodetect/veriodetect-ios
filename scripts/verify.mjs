@@ -78,25 +78,4 @@ for (const [status,error] of [[401,'Access code is invalid, expired or revoked.'
  reply={status,data:{error}};
  await assert.rejects(api('/api/x-posts?username=example'),e=>e.message===error);
 }
-// Run the actual bundled registration handler, without sending personal data.
-const registration=bundle.slice(bundle.indexOf('var accessRequestForm ='),bundle.lastIndexOf('//# sourceMappingURL')>0?bundle.lastIndexOf('//# sourceMappingURL'):undefined);
-assert(registration.startsWith('var accessRequestForm ='));
-let submit;let reset=false;
-const button={disabled:false},status={textContent:''};
-const form={querySelector:()=>button,addEventListener:(event,handler)=>{assert.equal(event,'submit');submit=handler;},reset:()=>{reset=true;}};
-const elements={'#accessRequestForm':form,'#accessRequestMessage':status,'#accessName':{value:'Test User'},'#accessEmail':{value:'tester@example.invalid'},'#accessReason':{value:'iOS test'}};
-new Function('document','nativeFetch',registration)({querySelector:selector=>elements[selector]},nativeFetch);
-reply={status:202,data:{message:'Request submitted for manual review.'}};
-await submit({preventDefault(){}});
-assert.equal(request.method,'POST');assert.equal(request.url,origin+'/api/access-request');
-assert.deepEqual(request.data,{name:'Test User',email:'tester@example.invalid',reason:'iOS test'});
-assert.equal(request.headers.authorization,undefined);
-assert.equal(status.textContent,reply.data.message);assert(reset);assert.equal(button.disabled,false);
-reset=false;reply={status:503,data:{error:'Unable to submit request. Please try later.'}};
-await submit({preventDefault(){}});
-assert.equal(status.textContent,reply.data.error);assert(!reset);assert.equal(button.disabled,false);
-reply={status:200,data:'<!doctype html>Netlify login'};
-await submit({preventDefault(){}});
-assert.match(status.textContent,/instead of JSON/);assert.equal(button.disabled,false);
-for(const path of ['https://example.invalid/api/x-status','/api/access-admin','/api/access-request']) await assert.rejects(nativeFetch(path),/Unsupported/);
-console.log('PASS: registration POST, approval/quota errors, login-wall response and origin/path restrictions (mocked; no live quota used).');
+await import('./verify-access-client.mjs');

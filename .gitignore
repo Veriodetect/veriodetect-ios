@@ -6,6 +6,7 @@ ios/App/App/config.xml
 ios/capacitor-cordova-ios-plugins/
 ios/App/Pods/
 build/
+backend-package/
 *.p8
 *.p12
 *.mobileprovision

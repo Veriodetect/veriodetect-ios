@@ -8,20 +8,24 @@ fs.rmSync('www', {recursive:true, force:true});
 fs.mkdirSync('www', {recursive:true});
 for(const file of ['index.html','styles.css','icon-192.png','icon-512.png','manifest.webmanifest']) fs.copyFileSync(`web-source/${file}`,`www/${file}`);
 let code = fs.readFileSync('web-source/app.js','utf8');
+const registrationMarker='// Manual beta access request (does not grant access or expose admin credentials).';
+if(!code.includes(registrationMarker))throw Error('Registration source boundary changed.');
+code=code.slice(0,code.indexOf(registrationMarker));
+code+="\ninstallAccessLifecycle({request:nativeFetch,onDeleted:()=>{latest=null;xImportedPosts=null;xImportedName='';$('#thread').value='';$('#xPosts').value='';renderHistory();}});\n";
 const replace = (a,b) => {if(!code.includes(a)) throw Error(`Source changed: ${a}`);code=code.replace(a,b);};
 replace("'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm'", "'fflate'");
 replace('await fetch(url,{headers})', 'await nativeFetch(url,{headers})');
-replace("await fetch('/api/access-request',", "await nativeFetch('/api/access-request',");
 if (/\bfetch\s*\(/.test(code)) throw Error('Unadapted frontend fetch: review native routing.');
 replace('await navigator.clipboard.readText()', '(await Clipboard.read()).value');
 replace("if(navigator.share)await navigator.share({title:'VerioDetect result',text});else await navigator.clipboard.writeText(text)", "await Share.share({title:'VerioDetect result',text})");
 replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});", '// Native app uses bundled assets; no service worker.');
 if (profile.channel === 'release') code = code.replaceAll('authorized beta tester code', 'approved access code');
-code = "import {CapacitorHttp} from '@capacitor/core';\nimport {Clipboard} from '@capacitor/clipboard';\nimport {Share} from '@capacitor/share';\nimport {createNativeFetch} from '../scripts/native-api.mjs';\n" + `const nativeFetch=createNativeFetch(CapacitorHttp,${JSON.stringify(u.origin)});\n` + code;
+code = "import {CapacitorHttp} from '@capacitor/core';\nimport {Clipboard} from '@capacitor/clipboard';\nimport {Share} from '@capacitor/share';\nimport {createNativeFetch} from '../scripts/native-api.mjs';\nimport {installAccessLifecycle} from '../client/access-lifecycle.mjs';\n" + `const nativeFetch=createNativeFetch(CapacitorHttp,${JSON.stringify(u.origin)});\n` + code;
 await build({stdin:{contents:code,resolveDir:process.cwd()+'/web-source',sourcefile:'app.js',loader:'js'},bundle:true,format:'esm',platform:'browser',target:'safari16',outfile:'www/app.js',legalComments:'eof'});
 fs.copyFileSync('node_modules/fflate/LICENSE','www/fflate-LICENSE.txt');
 // ZIP metadata still says 0.7.8 / 0.7.5; correct only the packaged About label.
 let html = fs.readFileSync('www/index.html','utf8').replace(/VerioDetect v0\.7\.\d+/g, `VerioDetect v${version}${profile.channel === 'staging' ? ' Staging' : ''}`);
+html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+fs.readFileSync('client/access-panel.html','utf8'));
 if (profile.channel === 'release') {
   html = html.replaceAll('Authorized beta access', 'Approved X access').replaceAll('authorized beta testers', 'approved users');
   const escape = value => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

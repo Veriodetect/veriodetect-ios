@@ -1,0 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {build} from 'esbuild';
+const target=path.resolve('backend-package');
+fs.rmSync(target,{recursive:true,force:true});fs.mkdirSync(target,{recursive:true});
+for(const name of ['index.html','styles.css','icon-192.png','icon-512.png','manifest.webmanifest','access-admin.html'])fs.copyFileSync('web-source/'+name,path.join(target,name));
+fs.cpSync('backend-candidate/netlify',path.join(target,'netlify'),{recursive:true});
+fs.writeFileSync(path.join(target,'netlify.toml'),'[build]\n  publish = "."\n  functions = "netlify/functions"\n');
+let code=fs.readFileSync('web-source/app.js','utf8');
+const marker='// Manual beta access request (does not grant access or expose admin credentials).';
+if(!code.includes(marker))throw Error('Registration boundary changed');
+code=code.slice(0,code.indexOf(marker)).replace("'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm'","'fflate'")
+ .replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});",'// Network-served candidate; no stale source service worker.');
+code="import {installAccessLifecycle} from '../client/access-lifecycle.mjs';\n"+code+"\ninstallAccessLifecycle({request:fetch,onDeleted:()=>{latest=null;xImportedPosts=null;xImportedName='';$('#thread').value='';$('#xPosts').value='';renderHistory();}});\n";
+await build({stdin:{contents:code,resolveDir:process.cwd()+'/web-source',sourcefile:'app.js'},bundle:true,format:'esm',platform:'browser',target:'safari16',outfile:path.join(target,'app.js')});
+let html=fs.readFileSync(path.join(target,'index.html'),'utf8').replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+fs.readFileSync('client/access-panel.html','utf8'));
+fs.writeFileSync(path.join(target,'index.html'),html);
+fs.copyFileSync('node_modules/fflate/LICENSE',path.join(target,'fflate-LICENSE.txt'));
+fs.writeFileSync(path.join(target,'_headers'),'/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n/api/*\n  Cache-Control: no-store\n');
+console.log('Prepared backend-package for reviewed Netlify CLI deployment. Not deployed; functions require CLI bundling.');

@@ -18,3 +18,9 @@ Current retention: local history is capped at 30 records. Server registration an
 Data controls: users can clear local analysis history. The release still needs an in-app access/account deletion flow that removes associated server records and access codes, with a confirmation and any justified retention exceptions. Contact info@cquestra.com for privacy enquiries. This draft does not present email contact as a substitute for an in-app deletion flow.
 
 Before publishing: confirm the lawful purposes/bases relevant to the operator and launch territories, recipients and transfer safeguards, rights/request handling, retention periods, minors/age eligibility, and complaint routes. Do not publish the unresolved editorial instructions above as user-facing policy text.
+
+## Candidate privacy update (not yet deployed)
+
+Operator confirmed: Cquestra B.V. Public support: https://veriodetect-website.netlify.app/support/. Privacy review page: https://veriodetect-website.netlify.app/privacy/. Registered contact address and final retention decision remain pending from the operator.
+
+The candidate adds a device-generated private deletion receipt when registering. Only its hash is stored server-side with the request. Receipts are saved locally and remain available for deleting pending/rejected requests. In About, a receipt deletes its enrollment; an approved individual's access code deletes registration and access records associated with the same approved email. Expired/revoked codes remain valid proof for erasure. After server confirmation, local saved analysis history and the access code are cleared. Receipts for other requests remain available. The backend removes the related request/code/receipt/quota records; provider backup/log retention is separate and must be confirmed. Do not publish this candidate behaviour as live before deployment/device validation.

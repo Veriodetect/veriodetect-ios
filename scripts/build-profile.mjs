@@ -10,6 +10,7 @@ export function readProfile(env = process.env) {
   if (origin.href !== expected + '/') throw Error(`The ${channel} profile only permits ${expected}.`);
   if (release) {
     if (!settings.backendValidated) throw Error('Release backend is not validated. Review and approve the backend plan before enabling release builds.');
+    if (!settings.privacyFinalized) throw Error('Finalize the published privacy policy before enabling release builds.');
     for (const key of ['supportUrl', 'privacyUrl']) {
       if (!settings[key]) throw Error(`Set the published ${key} before building a release.`);
       const url = new URL(settings[key]);

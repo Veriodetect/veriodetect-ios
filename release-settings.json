@@ -2,7 +2,9 @@
   "displayName": "VerioDetect",
   "backendOrigin": "https://veriodetectbeta.netlify.app",
   "backendValidated": false,
+  "privacyFinalized": false,
+  "operator": "Cquestra B.V.",
   "supportEmail": "info@cquestra.com",
-  "supportUrl": null,
-  "privacyUrl": null
+  "supportUrl": "https://veriodetect-website.netlify.app/support/",
+  "privacyUrl": "https://veriodetect-website.netlify.app/privacy/"
 }

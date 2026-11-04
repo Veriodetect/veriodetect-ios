@@ -63,7 +63,9 @@
         <section class="card x-handle-card">
           <div class="option-title">Analyse public X account</div>
           <div class="x-handle-row"><input id="xHandle" class="x-handle-input" placeholder="@username" autocapitalize="none" autocomplete="off" spellcheck="false"><button class="primary pill" id="xFetchBtn">Fetch</button></div>
-          <div class="x-fetch-options"><label>Authorized beta access <input id="xAccessCode" class="x-handle-input" type="password" placeholder="Tester code" autocomplete="off"></label><button class="secondary mini" id="xCheckBtn" type="button">Check X connection</button></div>
+          <details class="access-request-panel"><summary><strong>Need an individual access code? Request access</strong></summary>
+<form id="accessRequestForm"><input id="accessName" maxlength="100" required placeholder="Your name" autocomplete="name"><input id="accessEmail" type="email" maxlength="254" required placeholder="Your email" autocomplete="email"><textarea id="accessReason" maxlength="500" rows="2" placeholder="Reason for requesting access (optional)"></textarea><button type="submit" class="secondary mini">Submit request</button><small id="accessRequestMessage" role="status">Requests are reviewed manually. No access is granted automatically.</small></form></details>
+<div class="x-fetch-options"><label>Authorized beta access <input id="xAccessCode" class="x-handle-input" type="password" placeholder="Tester code" autocomplete="off"></label><button class="secondary mini" id="xCheckBtn" type="button">Check X connection</button></div>
           <div class="x-import-status">Live X retrieval is restricted to authorized beta testers, with a server-enforced maximum of 100 recent activities per analysis.</div>
           <div class="x-import-status" id="xConnectionStatus">Connection not checked.</div>
           <div class="x-import-status" id="xFetchStatus">Public posts are fetched through VerioDetect's secure server function. No X credential is stored in your browser.</div>

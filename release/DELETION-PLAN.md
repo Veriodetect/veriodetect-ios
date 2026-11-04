@@ -27,3 +27,9 @@ Recommended staging validation: deploy the candidate only to veriodetect-staging
 Local: existing source-hash/model/transport checks, receipt persistence/retry and deletion UI confirmation/failure/success, plus release-profile fixture packaging. Real Lua semantics and concurrency are tested by scripts/verify-backend-redis.mjs against a fresh Redis service in .github/workflows/release-checks.yml. The test refuses a nonempty database and requires explicit REDIS_TEST_DISPOSABLE=1; it must never be pointed at deployed Redis. GitHub test completion is recorded separately from local tests.
 
 The live privacy page remains a test-version review notice until this candidate is deployed and device-validated, retention/provider details are confirmed, and the owner contact address is supplied. release-settings.json keeps backendValidated and privacyFinalized false.
+
+## Verified automation result
+
+GitHub Actions completed successfully for candidate commit 7a89c8f5c7a524a036aff51a5dbb89a2cda8ab2e: https://github.com/Veriodetect/veriodetect-ios/actions/runs/41929989092 . This includes clean npm ci, staging/release fixture packaging, client/model regressions and real Redis Lua integration/concurrency checks. No live user's records were deleted and no X API request was made. Staging deployment and device acceptance remain outstanding.
+
+Staging Netlify project is currently not linked to a Git repository. Browser linking reached the Git-provider connection screen, which requires the owner's GitHub connection flow. Use a dedicated staging-deployment branch with netlify.toml copied from the reviewed netlify-candidate.toml. Preserve server-only environment values in Netlify; do not copy them into GitHub/source.

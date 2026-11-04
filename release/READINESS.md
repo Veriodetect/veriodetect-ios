@@ -44,3 +44,7 @@ Before a deploy: record the current production deploy ID, export/backup authoriz
 ## Deletion implementation update
 
 The deletion flow is now implemented as a candidate; see DELETION-PLAN.md for exact scope, compatibility and validation. The candidate is not yet deployed. Legal operator confirmed by owner: Cquestra B.V. Website/support/privacy review pages are hosted at https://veriodetect-website.netlify.app/. Support: info@cquestra.com. Public privacy/support URLs are recorded in release-settings.json, but privacyFinalized remains false until the policy is final and the new backend/device tests pass.
+
+## Confirmed operator details
+
+Cquestra B.V., Rokin 92, 1012 KZ Amsterdam, Netherlands; info@cquestra.com. Owner selected registration/access record retention until deletion is requested, with no automatic inactivity expiry. Final provider log/backup details and production-device validation still remain.

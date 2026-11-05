@@ -34,6 +34,19 @@ export async function verifyBillingRedis(redis){
  assert.equal((await ledger.reserve(op(12))).state,'expired');
  assert.equal((await ledger.settle(op(12),5)).settled,false);
  assert.equal(await ledger.balance(),299);
+ // Apple can deliver refunds before claim and retry older events after reversal.
+ const refundId='987654321';
+ assert.equal((await other.applyVerifiedRefund(refundId,{signedAt:100,refundedCredits:510})).applied,true);
+ assert.equal(await other.balance(),0);
+ await assert.rejects(ledger.creditVerifiedPurchase(refundId),/claim rejected/);
+ assert.equal((await other.creditVerifiedPurchase(refundId)).balance,510);
+ assert.equal((await other.applyVerifiedRefund(refundId,{signedAt:100,refundedCredits:510})).applied,false);
+ assert.equal((await other.applyVerifiedRefund(refundId,{signedAt:200,refundedCredits:1020})).applied,true);
+ assert.equal(await other.balance(),0);
+ assert.equal((await other.applyVerifiedRefund(refundId,{signedAt:300,refundedCredits:0})).applied,true);
+ assert.equal((await other.applyVerifiedRefund(refundId,{signedAt:200,refundedCredits:1020})).applied,false);
+ assert.equal(await other.balance(),1020);
+ assert.equal(await prod.balance(),0);
  assert.equal(await redis('TTL','verio:billing:sandbox:balance:'+accountId),-1,'Purchased credits must not expire');
  assert.equal(await redis('TTL','verio:billing:sandbox:transaction:123456789'),-1,'Replay protection must not expire');
  console.log('PASS: real Redis concurrent purchase replay/ownership, environment isolation, overspend prevention, idempotent settlement and failed-fetch refund, non-expiry.');

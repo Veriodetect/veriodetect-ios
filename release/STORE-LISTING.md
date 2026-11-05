@@ -27,6 +27,12 @@ Results describe patterns in the supplied sample. They do not establish identity
 
 Conversation text is analysed locally. Requesting live X access sends your registration details to our service; live retrieval sends an account handle through our server to X. See our privacy policy for details.
 
+## Description update for the release with paid Live X
+
+Replace the paragraph beginning “Optional live X retrieval” with this copy once paid Live X is available in the build being submitted:
+
+Live X is optional. It requires Sign in with Apple and manual approval, and daily retrieval limits apply. You can buy Verio Credits in the app to retrieve recent posts from public X accounts. Each fresh retrieval uses credits for the account lookup and the posts returned. Importing data, analysing data you already have, viewing history, and sharing results use no credits.
+
 ## Keywords
 
 conversation,timing,behaviour,analysis,activity,patterns,privacy

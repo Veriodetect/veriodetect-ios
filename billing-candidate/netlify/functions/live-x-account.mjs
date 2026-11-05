@@ -48,6 +48,7 @@ export default async req=>{
      return response({error:data.error||'X retrieval failed. No Verio Credits were used.'},fetched.ok?502:fetched.status);
     }
     const settlement=await ledger.settle(body.operationId,data.posts.length);
+    if(!settlement.settled)return response({error:'This fetch expired. Your reserved credits were returned.'},409);
     return response({...data,balance:settlement.balance,creditsUsed:quoteFetch(data.posts.length).credits});
    }
    // An already purchased pack must be deliverable even if approval has since expired.

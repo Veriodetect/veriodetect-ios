@@ -25,6 +25,15 @@ export async function verifyBillingRedis(redis){
  assert.equal((await ledger.settle(op(11),100)).settled,false);assert.equal(await ledger.balance(),197);
  await assert.rejects(ledger.settle(op(999),100),/rejected/);
  await assert.rejects(ledger.settle(op(12),101),/Invalid post count/);
+ // Simulate a worker stopping after it reserves credits. Concurrent balance
+ // checks must release the hold once, and a late worker cannot bill it.
+ const root='verio:billing:sandbox:';
+ await redis('ZADD',root+'holds:'+accountId,0,root+'operation:'+accountId+':'+op(12));
+ const recovered=await Promise.all([ledger.balance(),ledger.balance()]);
+ assert.deepEqual(recovered,[299,299]);
+ assert.equal((await ledger.reserve(op(12))).state,'expired');
+ assert.equal((await ledger.settle(op(12),5)).settled,false);
+ assert.equal(await ledger.balance(),299);
  assert.equal(await redis('TTL','verio:billing:sandbox:balance:'+accountId),-1,'Purchased credits must not expire');
  assert.equal(await redis('TTL','verio:billing:sandbox:transaction:123456789'),-1,'Replay protection must not expire');
  console.log('PASS: real Redis concurrent purchase replay/ownership, environment isolation, overspend prevention, idempotent settlement and failed-fetch refund, non-expiry.');

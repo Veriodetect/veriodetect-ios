@@ -12,7 +12,7 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
   const result=await request('/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',...(session?{authorization:'Bearer '+session}:{})},body:JSON.stringify({action,...extra})});
   const data=await result.json();if(!result.ok)throw Error(data.error||'Account request failed');return data;
  }
- function showBalance(value){balance.textContent=`${value} test credits available`}
+ function showBalance(value){balance.textContent=`${value} Verio Credits available`}
  async function deliver(transaction){
   const claim=await api('claim',{signedTransaction:transaction.signedTransaction});
   if(claim.transactionId!==transaction.transactionId)throw Error('Purchase delivery was not confirmed.');
@@ -26,7 +26,7 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
   for(const transaction of (await native.unfinished()).transactions)await deliver(transaction);
   const product=(await native.products()).products.find(item=>item.id===credits.productId);
   productAvailable=Boolean(product);
-  buy.textContent=product?`Test purchase · ${product.price}`:'Test credit pack unavailable';
+  buy.textContent=product?`Buy 1,020 Verio Credits · ${product.price}`:'Verio Credits pack unavailable';
  }
  async function refresh(){
   try{
@@ -74,17 +74,17 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
   buy.onclick=()=>perform(async()=>{
    const approval=await api('preparePurchase',{accessCode:accessCode()});
    const result=await native.purchase({accountId:approval.accountId});
-   if(result.status==='purchased'){await deliver(result);status.textContent='Test credits added.'}
-   else if(result.status==='pending')status.textContent='Test purchase pending. Tap Check test balance to check again.';
-   else if(result.status==='cancelled')status.textContent='Test purchase cancelled.';
+   if(result.status==='purchased'){await deliver(result);status.textContent='Verio Credits added.'}
+   else if(result.status==='pending')status.textContent='Sandbox purchase pending. Tap Check balance to try again.';
+   else if(result.status==='cancelled')status.textContent='Sandbox purchase cancelled.';
   });
  }
  perform(refresh);
  return {
   async fetchWithCredits(username){
-   if(!session)throw Error('Sign in with Apple under About before using test credits.');
+   if(!session)throw Error('Sign in with Apple under About before using Verio Credits.');
    if(busy)throw Error('Wait for the current account operation to finish.');
-   if(!confirm(`Fetch from X for up to ${maxFetchCredits} test credits?`))throw Error('Fetch cancelled.');
+   if(!confirm(`Fetch from X for up to ${maxFetchCredits} Verio Credits?`))throw Error('Fetch cancelled.');
    const result=await api('fetchWithCredits',{username,accessCode:accessCode(),operationId:crypto.randomUUID()});
    showBalance(result.balance);
    return result;

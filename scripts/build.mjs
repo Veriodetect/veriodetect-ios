@@ -41,10 +41,11 @@ html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="pa
 if(accountPreview){
  let panel=fs.readFileSync('client/apple-account.html','utf8');
  if(sandboxCredits)panel=panel
-  .replace('Try Apple sign-in for future Live X credit recovery. Local analysis needs no account, and this preview has no charges.','Buy test credits for fresh Live X requests. Local analysis uses no credits.')
+  .replace('Try Apple sign-in for future Live X credit recovery. Local analysis needs no account, and this preview has no charges.','Buy Verio Credits for fresh Live X requests. Local analysis uses no credits.')
   .replace('<!-- SANDBOX_CREDITS -->',`<p id="sandboxCreditBalance" role="status"></p>
-   <button type="button" id="sandboxBuyCredits" class="primary" disabled>Loading test credit pack…</button>
-   <button type="button" id="sandboxCheckCredits" class="secondary">Check test balance</button>`);
+   <button type="button" id="sandboxBuyCredits" class="primary" disabled>Loading Verio Credits pack…</button>
+   <button type="button" id="sandboxCheckCredits" class="secondary">Check balance</button>
+   <p>Sandbox purchase · No charge</p>`);
  html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+panel);
 }
 if (profile.channel === 'release') {

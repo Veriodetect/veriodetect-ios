@@ -21,3 +21,10 @@ Unfinished: implement StoreKit purchases, authenticated server transaction valid
 
 ## Charge boundary — explicit owner instruction
 Only live access to the X API may consume paid credits. No usage charges for M0/M1 conversation analysis, imports, M2 analysis/reanalysis of already loaded data, history, sharing, registration, approval/status checks, or deletion. The EUR2.99 app purchase remains the separate one-time purchase already agreed. A new live Fetch must display/confirm its maximum credit cost; Analyze never debits. Existing daily quotas do not represent paid balances. Failed retrievals refund the reservation. Production remains unchanged while the candidate ledger is developed.
+
+## Isolated implementation progress
+Feature branch feat/live-x-credits contains candidate integer pricing, Apple product/account/environment validation, atomic Redis purchase replay protection, reserve/settle/failed-fetch refund, and non-expiring balances. Only live-x-fetch is quoted as billable; all local operations return zero usage credits. Real Redis CI passed concurrent purchase replay, cross-account/environment isolation, overspend prevention and refund/settlement idempotency.
+
+Pinned official Apple server library3.1.0 and public Apple PKI roots via isolated GitHub dependency job because local npm DNS is unavailable. Added candidate signed-proof verification with online certificate checks and native StoreKit product/purchase/pending/unfinished/finish bridge. No JS payment UI, deployed endpoints, ledger enforcement, refund notifications or recovery flow enabled yet. Native bridge compile and forged-proof checks pending CI. Finish is deferred until server durable credit confirmation.
+
+Owner choice pending: Sign in with Apple plus manual approval, or existing access-code system with support-assisted balance recovery. This decision affects linking purchases to recoverable approved accounts; local analysis remains without login or credits. Production functions, website, TestFlight build121 and App Store sale/review state unchanged.

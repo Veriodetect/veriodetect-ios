@@ -1,5 +1,91 @@
 import UIKit
 import Capacitor
+import StoreKit
+
+@objc(VerioCreditsPlugin)
+public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "VerioCreditsPlugin"
+    public let jsName = "VerioCredits"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "products", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "unfinished", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise)
+    ]
+    private let productID = "com.veriodetect.app.xcredits1020"
+    private var updates: Task<Void, Never>?
+    public override func load() {
+        updates = Task { [weak self] in
+            for await result in Transaction.updates {
+                guard let self = self else { return }
+                if case .verified(let transaction) = result, transaction.productID == self.productID {
+                    self.notifyListeners("transactionUpdated", data: ["transactionId": String(transaction.id), "signedTransaction": result.jwsRepresentation])
+                }
+            }
+        }
+    }
+    deinit { updates?.cancel() }
+    @objc func products(_ call: CAPPluginCall) {
+        Task {
+            do {
+                let products = try await Product.products(for: [productID])
+                call.resolve(["products": products.map { ["id": $0.id, "name": $0.displayName, "price": $0.displayPrice] }])
+            } catch { call.reject("App Store products are unavailable. Please try again later.") }
+        }
+    }
+    @objc func purchase(_ call: CAPPluginCall) {
+        guard let value = call.getString("accountId"), let account = UUID(uuidString: value) else {
+            call.reject("Approved access is required before purchasing credits."); return
+        }
+        Task {
+            do {
+                guard let product = try await Product.products(for: [productID]).first else {
+                    call.reject("This credit pack is not currently available."); return
+                }
+                let result = try await product.purchase(options: [.appAccountToken(account)])
+                switch result {
+                case .success(let verification):
+                    guard case .verified(let transaction) = verification else { call.reject("Apple could not verify this purchase."); return }
+                    // Finish only after the server confirms durable, idempotent credit delivery.
+                    call.resolve(["status": "purchased", "transactionId": String(transaction.id), "signedTransaction": verification.jwsRepresentation])
+                case .pending: call.resolve(["status": "pending"])
+                case .userCancelled: call.resolve(["status": "cancelled"])
+                @unknown default: call.reject("Unexpected App Store purchase state.")
+                }
+            } catch { call.reject("Purchase could not be completed. Pending purchases can be retried safely.") }
+        }
+    }
+    @objc func unfinished(_ call: CAPPluginCall) {
+        Task {
+            var pending: [[String: String]] = []
+            for await result in Transaction.unfinished {
+                if case .verified(let transaction) = result, transaction.productID == productID {
+                    pending.append(["transactionId": String(transaction.id), "signedTransaction": result.jwsRepresentation])
+                }
+                if pending.count >= 100 { break }
+            }
+            call.resolve(["transactions": pending])
+        }
+    }
+    @objc func finish(_ call: CAPPluginCall) {
+        guard let id = call.getString("transactionId") else { call.reject("Missing transaction."); return }
+        Task {
+            for await result in Transaction.unfinished {
+                if case .verified(let transaction) = result, String(transaction.id) == id, transaction.productID == productID {
+                    await transaction.finish(); call.resolve(); return
+                }
+            }
+            call.resolve() // Already finished: retry is harmless.
+        }
+    }
+}
+
+@objc(VerioBridgeViewController)
+class VerioBridgeViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        bridge?.registerPluginInstance(VerioCreditsPlugin())
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {

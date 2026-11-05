@@ -33,8 +33,8 @@ export async function verifyIdentityRedis(redis){
  await assert.rejects(service.authenticate(recovered.session),/sign in again/);
  // Exercise the actual staged HTTP handler, including Apple's revocation failure path.
  const oldFetch=globalThis.fetch,oldNetlify=globalThis.Netlify;
- let revokeOk=false,xLookups=0,xFails=false;
- globalThis.Netlify={env:{get:name=>({X_BEARER_TOKEN:'test-x-token',APPLE_ACCOUNT_PREVIEW_ENABLED:'1',APPLE_SIGNIN_PRIVATE_KEY:configuration.privateKey,APPLE_SIGNIN_KEY_ID:configuration.keyId,APPLE_SIGNIN_TEAM_ID:configuration.teamId,APPLE_SIGNIN_TOKEN_SECRET:configuration.tokenSecret})[name]||oldNetlify.env.get(name)}};
+ let revokeOk=false,xLookups=0,xFails=false,creditsRequired=false;
+ globalThis.Netlify={env:{get:name=>({LIVE_X_PRODUCTION_CREDITS_REQUIRED:creditsRequired?'1':'0',X_BEARER_TOKEN:'test-x-token',APPLE_ACCOUNT_PREVIEW_ENABLED:'1',APPLE_SIGNIN_PRIVATE_KEY:configuration.privateKey,APPLE_SIGNIN_KEY_ID:configuration.keyId,APPLE_SIGNIN_TEAM_ID:configuration.teamId,APPLE_SIGNIN_TOKEN_SECRET:configuration.tokenSecret})[name]||oldNetlify.env.get(name)}};
  globalThis.fetch=async(url,options)=>{
   if(url==='https://appleid.apple.com/auth/token')return {ok:true,json:async()=>({refresh_token:'private-test-refresh',id_token:currentToken})};
   if(url==='https://appleid.apple.com/auth/revoke')return {ok:revokeOk};
@@ -71,6 +71,11 @@ export async function verifyIdentityRedis(redis){
   assert.equal((await sandbox({action:'claim',signedTransaction:'forged.purchase.proof'})).status,400);
   const ledger=createLedger(redis,{environment:'Sandbox',accountId:sandboxLogin.accountId,requireActiveAccount:true});
   await ledger.creditVerifiedPurchase('920000001');
+  const {default:legacyFetch}=await import('../backend-candidate/netlify/functions/x-posts.mjs');
+  creditsRequired=true;
+  const blocked=await legacyFetch(new Request('https://example.invalid/api/x-posts?username=example',{headers:{authorization:'Bearer '+accessCode}}));
+  assert.equal(blocked.status,426);
+  assert.equal(xLookups,0);
   const fetched=await sandbox(operation);assert.equal(fetched.status,200);
   assert.equal((await fetched.json()).creditsUsed,3);
   assert.equal(await ledger.balance(),1017);

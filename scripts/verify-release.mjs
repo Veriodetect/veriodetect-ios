@@ -7,6 +7,7 @@ function run(script,env={}) {
   return spawnSync(process.execPath,[script],{env:{...process.env,...env},encoding:'utf8'});
 }
 try {
+  fs.writeFileSync('release-settings.json',JSON.stringify({...JSON.parse(original),backendValidated:false}));
   let r=run('scripts/build.mjs',{APP_CHANNEL:'release',NETLIFY_ORIGIN:'https://veriodetectbeta.netlify.app'});
   assert.notEqual(r.status,0);assert.match(r.stderr,/backend is not validated/);
   r=run('scripts/build.mjs',{APP_CHANNEL:'staging',NETLIFY_ORIGIN:'https://veriodetectbeta.netlify.app'});

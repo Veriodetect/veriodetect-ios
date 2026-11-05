@@ -4,7 +4,9 @@ export const response = (body,status=200) => new Response(JSON.stringify(body), 
 export async function redis(...command){
  const url=env('UPSTASH_REDIS_REST_URL'),token=env('UPSTASH_REDIS_REST_TOKEN');
  if(!url||!token)throw new Error('Access database not configured');
- const res=await fetch(url.replace(/\/$/,'') ,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(command)});
+ if(!/^https:\/\/[^\s/?#@]+\/?$/.test(url))throw new Error('Access database URL is invalid');
+ let res;try{res=await fetch(url.replace(/\/$/,'') ,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(command)});}catch{throw new Error('Access database connection failed')}
+ if(res.status===401||res.status===403)throw new Error('Access database token was rejected');
  if(!res.ok)throw new Error('Access database unavailable');
  const data=await res.json();if(data.error)throw new Error('Access database error');return data.result;
 }

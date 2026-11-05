@@ -37,3 +37,25 @@ Owner approved $20/month per Redis database (up to $40 total) after the console 
 Owner explicitly approved giving veriodetectbeta server read/write access to this database. Saved UPSTASH_REDIS_REST_URL as a Netlify secret in production context only. No staging credentials reused. Token entry remains pending owner handoff because browser clipboard copy did not yield a usable token; never save masked text as a token. VERIO_ADMIN_TOKEN also remains to be set privately by owner. Existing X and legacy code variables preserved. No production deployment yet. backendValidated remains false.
 
 Production browser packaging now supports SITE_CHANNEL=production for current version, approved-access language, privacy/support links and registration notice. Default staging packaging remains available; original model source unchanged. npm run package:backend (both channels) and npm run verify pass locally.
+
+## Production deployed — 5 November 2026
+Owner saved production-only UPSTASH_REDIS_REST_TOKEN and VERIO_ADMIN_TOKEN. URL was restored after token was initially entered under URL; distinct names now confirmed. Secret values were not read. Dedicated branch deploy/production-v079 at ad2ed3219983c678faf6a9ffe067310312dd933b deployed successfully: 6aebc93beb5abbd156c97948, six functions, 15s total. https://app.netlify.com/projects/veriodetectbeta/deploys/6aebc93beb5abbd156c97948
+
+Public frontend verified v0.7.9 with deletion panel and privacy/support links. GET /api/x-status returns individual-access-required JSON; GET /api/access-delete returns method-not-allowed JSON. These checks do not prove Redis connectivity or authenticated X retrieval. Administrator panel opened for owner to enter saved token and Load requests, then production registration/approval/deletion/quota validation still required. backendValidated remains false; no App Store release build or submission performed.
+
+## Administrator authorization investigation
+After successful deployment and a fresh rebuild, owner reports Unauthorized with the same administrator password. A guarded configuration check was added on production branch commit d52e413debfa1d4cc795bf1fa6966db8931f257a: missing VERIO_ADMIN_TOKEN returns 503, configured but invalid/absent presented token remains 401. Local handler checks confirm both states preserve authentication. Deploy 6aebcc3ccd96e5dceb5c19c1 published; public no-token request returned Unauthorized, proving server configuration is present but not proving any particular credential value matches. No token values inspected.
+
+Owner replaced VERIO_ADMIN_TOKEN privately on 5 November 2026 after being asked to use 32 random ASCII letters/digits. Triggered clean redeploy 6aebcd2fdec9dab3f614c5ff at same source d52e413. Authentication retest pending. Do not label backend validated or submit release until authenticated database/X checks pass.
+
+## Database connection diagnosis — 5 November 2026
+Owner confirmed production admin now accepts replacement password but loading requests fails. Production commit 8a1c56691eb3c2fd62ba3c9d971172d5005f100d adds controlled Redis diagnostics to authenticated admin errors only: invalid URL, missing configuration, rejected token, connection failure, unavailable, Redis error. Never return raw remote error bodies or credentials. Local tests for invalid URL/401/500 passed. Deploy 6aebd0c1d3ab81ae009a630e published. Clicking Load requests with owner's existing entered credential returned: Access database token was rejected.
+
+Owner copied TOKEN from isolated production Upstash to production-only UPSTASH_REDIS_REST_TOKEN and saved. Clean redeploy triggered: 6aebd195021d12380229857c. Authenticated database retest pending.
+
+Production database connection confirmed after deploy 6aebd195021d12380229857c. Authenticated admin Load requests returned 0 requests loaded. Administrator credential and Redis LRANGE are working. Full production registration/approval/retrieval/quota/deletion and exact public iOS build validation remain pending. backendValidated stays false.
+
+## Production acceptance — 5 November 2026
+Authenticated production admin returned 0 requests loaded after token correction. Owner submitted production registration; admin confirmed 1 pending request with quota 10. Owner approved it, reported Authorized X beta access configured, successful live retrieval and M2 analysis. Owner then confirmed deletion and denial of the deleted code. Production acceptance covers manual request/approval, live retrieval, M2, and deletion/revocation. Production quota exhaustion was not repeated with paid X calls; quota logic is unchanged from tested staging and disposable Redis regression coverage.
+
+Release profile backendValidated is now true based on these checks. Public workflow ios-app-store uses production origin and final privacy/support pages. Still requires a signed Codemagic build, installation and device validation of that exact build, App Store metadata/privacy disclosures and private reviewer access before submission. No public App Store submission or release has occurred.

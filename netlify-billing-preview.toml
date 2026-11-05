@@ -1,0 +1,12 @@
+[build]
+  command = "npm run package:backend"
+  publish = "backend-package"
+  functions = "billing-candidate/netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+  SITE_CHANNEL = "staging"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["billing-candidate/apple-roots/*.pem"]

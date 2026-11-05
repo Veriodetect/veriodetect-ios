@@ -29,5 +29,29 @@ export async function verifyIdentityRedis(redis){
  assert.equal((await service.authenticate(recovered.session)).accountId,login.accountId);
  const account=JSON.parse(record);account.generation++;await redis('SET','verio:identity:account:'+account.id,JSON.stringify(account));
  await assert.rejects(service.authenticate(recovered.session),/sign in again/);
+ // Exercise the actual staged HTTP handler, including Apple's revocation failure path.
+ const oldFetch=globalThis.fetch,oldNetlify=globalThis.Netlify;
+ let revokeOk=false;
+ globalThis.Netlify={env:{get:name=>({APPLE_ACCOUNT_PREVIEW_ENABLED:'1',APPLE_SIGNIN_PRIVATE_KEY:configuration.privateKey,APPLE_SIGNIN_KEY_ID:configuration.keyId,APPLE_SIGNIN_TEAM_ID:configuration.teamId,APPLE_SIGNIN_TOKEN_SECRET:configuration.tokenSecret})[name]||oldNetlify.env.get(name)}};
+ globalThis.fetch=async(url,options)=>{
+  if(url==='https://appleid.apple.com/auth/token')return {ok:true,json:async()=>({refresh_token:'private-test-refresh',id_token:currentToken})};
+  if(url==='https://appleid.apple.com/auth/revoke')return {ok:revokeOk};
+  return oldFetch(url,options);
+ };
+ try{
+  const {default:handler}=await import('../billing-candidate/netlify/functions/live-x-account.mjs');
+  const request=(body,session='')=>new Request('https://example.invalid/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+session},body:JSON.stringify(body)});
+  const challenge=await (await handler(request({action:'challenge'}))).json();currentToken=makeToken(challenge.nonce);
+  const signed=await handler(request({action:'signin',...challenge,identityToken:currentToken,authorizationCode:'test-authorization-code'}));assert.equal(signed.status,200);
+  const login=await signed.json();const status=await handler(request({action:'status'},login.session));assert.equal(status.status,200);
+  const visible=await status.json();assert.equal(visible.purchasesEnabled,false);assert(!JSON.stringify(visible).includes('refreshToken'));
+  assert.equal((await handler(request({action:'delete'},login.session))).status,400);
+  assert.equal((await handler(request({action:'delete',confirm:true},login.session))).status,503);
+  assert.equal((await handler(request({action:'status'},login.session))).status,200,'Failed Apple revoke must preserve account');
+  revokeOk=true;assert.equal((await handler(request({action:'delete',confirm:true},login.session))).status,200);
+  assert.equal((await handler(request({action:'status'},login.session))).status,400);
+  assert.equal(await redis('GET','verio:identity:account:'+login.accountId),null);
+ }finally{globalThis.fetch=oldFetch;globalThis.Netlify=oldNetlify;}
  console.log('PASS: real Redis one-use Apple nonce, concurrent replay rejection, stable account recovery, encrypted refresh token and session generation invalidation.');
+ console.log('PASS: preview HTTP sign-in/status, purchases disabled, deletion confirmation and Apple revocation failure preserves account.');
 }

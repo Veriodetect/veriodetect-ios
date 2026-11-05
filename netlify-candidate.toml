@@ -1,0 +1,7 @@
+[build]
+  command = "npm run package:backend"
+  publish = "backend-package"
+  functions = "backend-candidate/netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"

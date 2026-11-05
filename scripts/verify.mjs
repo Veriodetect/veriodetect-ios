@@ -1,7 +1,13 @@
 import fs from 'node:fs';
+import './verify-m2-results.mjs';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import {analyseM2, parseXStructured, filterXPosts} from '../web-source/m2.js';
+import {readProfile} from './build-profile.mjs';
+const profile=readProfile();
+const buildInfo=JSON.parse(fs.readFileSync('www/build-info.json','utf8'));
+assert.equal(buildInfo.channel,profile.channel);
+assert.equal(buildInfo.origin,profile.origin);
 const hashes=JSON.parse(fs.readFileSync('source-hashes.json','utf8'));
 for(const [file,hash] of Object.entries(hashes)) assert.equal(crypto.createHash('sha256').update(fs.readFileSync('web-source/'+file)).digest('hex'),hash,`Original changed: ${file}`);
 const bundle=fs.readFileSync('www/app.js','utf8');
@@ -16,10 +22,16 @@ assert(!fs.existsSync('www/netlify'));
 assert(!fs.existsSync('www/access-admin.html'));
 assert(!bundle.includes('VERIO_ADMIN_TOKEN'));
 assert(!bundle.includes('UPSTASH_REDIS_REST_TOKEN'));
-assert(!bundle.includes('veriodetectbeta.netlify.app'));
-assert(bundle.includes('https://veriodetect-staging.netlify.app'));
+assert(!bundle.includes(profile.channel==='staging'?'veriodetectbeta.netlify.app':'veriodetect-staging.netlify.app'));
+assert(bundle.includes(profile.origin));
 assert(!/\bfetch\s*\(/.test(bundle.slice(bundle.lastIndexOf('// web-source/app.js'))));
-assert(fs.readFileSync('www/index.html','utf8').includes('VerioDetect v0.7.9 Staging'));
+const packagedHtml=fs.readFileSync('www/index.html','utf8');
+assert(packagedHtml.includes(`VerioDetect v${buildInfo.version}${profile.channel==='staging'?' Staging':''}`));
+if(profile.channel==='release') {
+ assert(!packagedHtml.includes('Authorized beta access'));
+ assert(packagedHtml.includes('Privacy policy'));
+ assert(packagedHtml.includes('Support</a>'));
+}
 const config=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));
 assert.equal(config.appId,'com.veriodetect.app');
 assert.equal(config.server?.url,undefined);
@@ -38,7 +50,7 @@ console.log('PASS: original source hashes, client/backend separation, native int
 const apiSource=bundle.slice(bundle.indexOf('async function apiJSON('),bundle.indexOf('async function checkXConnection('));
 assert(apiSource.startsWith('async function apiJSON('));
 let reply,request;
-const origin='https://veriodetect-staging.netlify.app';
+const origin=profile.origin;
 const transportSource=bundle.slice(bundle.indexOf('function createNativeFetch('),bundle.indexOf('// web-source/engine.js'));
 assert(transportSource.startsWith('function createNativeFetch('));
 const createNativeFetch=new Function(transportSource+'; return createNativeFetch;')();
@@ -55,7 +67,7 @@ await api('/api/x-status',{xAuth:true});
 assert.equal(request.headers.authorization,'Bearer '+code);
 assert.equal(request.disableRedirects,true);
 code='';storage.clear();
-await assert.rejects(api('/api/x-status',{xAuth:true}),/tester code first/);
+await assert.rejects(api('/api/x-status',{xAuth:true}),/code first/);
 reply={status:200,data:'{"ok":true}'};
 assert.deepEqual(await api('/api/x-status'),{ok:true});
 reply={status:429,data:{error:'X API rate/usage limit reached (HTTP 429).'}};
@@ -67,25 +79,4 @@ for (const [status,error] of [[401,'Access code is invalid, expired or revoked.'
  reply={status,data:{error}};
  await assert.rejects(api('/api/x-posts?username=example'),e=>e.message===error);
 }
-// Run the actual bundled registration handler, without sending personal data.
-const registration=bundle.slice(bundle.indexOf('var accessRequestForm ='),bundle.lastIndexOf('//# sourceMappingURL')>0?bundle.lastIndexOf('//# sourceMappingURL'):undefined);
-assert(registration.startsWith('var accessRequestForm ='));
-let submit;let reset=false;
-const button={disabled:false},status={textContent:''};
-const form={querySelector:()=>button,addEventListener:(event,handler)=>{assert.equal(event,'submit');submit=handler;},reset:()=>{reset=true;}};
-const elements={'#accessRequestForm':form,'#accessRequestMessage':status,'#accessName':{value:'Test User'},'#accessEmail':{value:'tester@example.invalid'},'#accessReason':{value:'iOS test'}};
-new Function('document','nativeFetch',registration)({querySelector:selector=>elements[selector]},nativeFetch);
-reply={status:202,data:{message:'Request submitted for manual review.'}};
-await submit({preventDefault(){}});
-assert.equal(request.method,'POST');assert.equal(request.url,origin+'/api/access-request');
-assert.deepEqual(request.data,{name:'Test User',email:'tester@example.invalid',reason:'iOS test'});
-assert.equal(request.headers.authorization,undefined);
-assert.equal(status.textContent,reply.data.message);assert(reset);assert.equal(button.disabled,false);
-reset=false;reply={status:503,data:{error:'Unable to submit request. Please try later.'}};
-await submit({preventDefault(){}});
-assert.equal(status.textContent,reply.data.error);assert(!reset);assert.equal(button.disabled,false);
-reply={status:200,data:'<!doctype html>Netlify login'};
-await submit({preventDefault(){}});
-assert.match(status.textContent,/instead of JSON/);assert.equal(button.disabled,false);
-for(const path of ['https://example.invalid/api/x-status','/api/access-admin','/api/access-request']) await assert.rejects(nativeFetch(path),/Unsupported/);
-console.log('PASS: registration POST, approval/quota errors, login-wall response and origin/path restrictions (mocked; no live quota used).');
+await import('./verify-access-client.mjs');

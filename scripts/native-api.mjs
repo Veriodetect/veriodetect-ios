@@ -3,7 +3,7 @@ export function createNativeFetch(http, origin) {
   return async (path, options = {}) => {
     const url = new URL(path, origin);
     const method = options.method || 'GET';
-    const allowed = {'/api/x-status': 'GET', '/api/x-posts': 'GET', '/api/access-request': 'POST'};
+    const allowed = {'/api/x-status': 'GET', '/api/x-posts': 'GET', '/api/access-request': 'POST', '/api/access-delete': 'POST'};
     if (url.origin !== origin || allowed[url.pathname] !== method) {
       throw new Error('Unsupported native API request.');
     }

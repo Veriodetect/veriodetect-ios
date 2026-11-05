@@ -31,6 +31,6 @@ export default async req=>{
   const out=await redis('EVAL',ADMIN_SCRIPT,'1',`verio:request:${id}`,action,String(q),expires,await sha(code),new Date().toISOString());
   if(Number(out?.[0])!==1)return response({error:Number(out?.[1])===404?'Request not found':'Action is not allowed for current status'},Number(out?.[1])===404?404:409);
   return response({request:JSON.parse(out[1]),...(action==='approve'?{code,notice:'Copy this code now and send it privately. It cannot be recovered.'}:{})});
- }catch{return response({error:'Administrator operation failed'},503)}
+ }catch(e){const safe=['Access database not configured','Access database URL is invalid','Access database connection failed','Access database token was rejected','Access database unavailable','Access database error'];return response({error:safe.includes(e.message)?e.message:'Administrator operation failed'},503)}
 };
 export const config={path:'/api/access-admin'};

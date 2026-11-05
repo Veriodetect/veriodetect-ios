@@ -25,7 +25,13 @@ export async function loadAppleKeys(fetchImpl=fetch){
 export function appleClientSecret({privateKey,keyId,teamId,now=Math.floor(Date.now()/1000)}){
  if(!/^[A-Z0-9]{10}$/.test(keyId||'')||!/^[A-Z0-9]{10}$/.test(teamId||'')||!privateKey?.includes('BEGIN PRIVATE KEY'))throw Error('Apple sign-in service is not configured');
  const input=encode({alg:'ES256',kid:keyId})+'.'+encode({iss:teamId,iat:now,exp:now+300,aud:APPLE,sub:CATALOG.bundleId});
- try{return input+'.'+sign('sha256',Buffer.from(input),{key:privateKey,dsaEncoding:'ieee-p1363'}).toString('base64url')}catch{throw Error('Apple private key format is invalid')}
+ // Secret fields can store escaped newlines or flatten pasted PEM lines.
+ const pem=privateKey.replace(/\\r\\n|\\n|\\r/g,'\n').trim();
+ const match=/^-----BEGIN PRIVATE KEY-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END PRIVATE KEY-----$/.exec(pem);
+ if(!match)throw Error('Apple private key format is invalid');
+ const body=match[1].replace(/\s/g,'');
+ const key='-----BEGIN PRIVATE KEY-----\n'+body+'\n-----END PRIVATE KEY-----\n';
+ try{return input+'.'+sign('sha256',Buffer.from(input),{key,dsaEncoding:'ieee-p1363'}).toString('base64url')}catch{throw Error('Apple private key format is invalid')}
 }
 export async function exchangeAppleCode(code,configuration,{fetchImpl=fetch}={}){
  if(typeof code!=='string'||code.length<10||code.length>4000)throw Error('Invalid Apple authorization code');

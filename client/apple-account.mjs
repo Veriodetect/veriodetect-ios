@@ -26,7 +26,7 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
   for(const transaction of (await native.unfinished()).transactions)await deliver(transaction);
   const product=(await native.products()).products.find(item=>item.id===credits.productId);
   productAvailable=Boolean(product);
-  buy.textContent=product?`Buy 1,020 Verio Credits · ${product.price}`:'Verio Credits pack unavailable';
+  buy.textContent=product?'Buy 1,020 Verio Credits':'Verio Credits pack unavailable';
  }
  async function refresh(){
   try{

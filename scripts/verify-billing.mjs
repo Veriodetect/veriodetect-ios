@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {quoteFetch,quoteOperation,validateVerifiedPurchase,CATALOG} from '../billing-candidate/catalog.mjs';
+const accountId='11111111-1111-4111-8111-111111111111';
+const t={environment:'Sandbox',bundleId:CATALOG.bundleId,productId:CATALOG.productId,type:'Consumable',appAccountToken:accountId,transactionId:'123456',quantity:1,purchaseDate:Date.now()};
+assert.deepEqual(quoteFetch(),{rateVersion:CATALOG.version,credits:102,apiCostMicroUSD:510000,targetPriceMicroUSD:1530000});
+assert.equal(quoteFetch(0).credits,2);assert.equal(quoteFetch(5).credits,7);
+for(const operation of ['conversation-m0','conversation-m1','import-x','analyse-m2','reanalyse-m2','history','share','register','access-check','delete'])assert.equal(quoteOperation(operation).credits,0,operation+' must not consume credits');
+assert.equal(quoteOperation('live-x-fetch').credits,102);
+for(const n of [-1,101,1.1,NaN])assert.throws(()=>quoteFetch(n));
+assert.equal(validateVerifiedPurchase(t,{accountId,environment:'Sandbox'}).credits,1020);
+for(const patch of [{environment:'Production'},{bundleId:'wrong'},{productId:'other'},{quantity:2},{revocationDate:1},{appAccountToken:'other'},{transactionId:'x'},{purchaseDate:Date.now()+3600000}])assert.throws(()=>validateVerifiedPurchase({...t,...patch},{accountId,environment:'Sandbox'}));
+console.log('PASS: 3x API pricing, maximum reservation, purchase account/environment/product/quantity/revocation validation.');

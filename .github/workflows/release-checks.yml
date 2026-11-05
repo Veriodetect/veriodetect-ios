@@ -2,7 +2,7 @@ name: Release preparation checks
 on:
   pull_request:
   push:
-    branches: [feat/app-store-release-preparation]
+    branches: [feat/app-store-release-preparation, feat/live-x-credits]
 jobs:
   packaging-and-deletion:
     runs-on: ubuntu-latest
@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run verify
+      - run: node scripts/verify-billing.mjs
       - run: npm run verify:release
       - run: node scripts/package-backend.mjs
       - run: node scripts/verify-backend-redis.mjs

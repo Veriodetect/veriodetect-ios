@@ -65,6 +65,7 @@ try {
  assert.equal((await action(otherId,'reject')).status,200);assert.equal((await deletion(otherReceipt)).status,200);
  assert.equal(await command('LLEN','verio:requests'),0);assert.equal(await command('DBSIZE'),0);
  console.log('PASS: real Redis Lua registration retry, confirmation/auth, quota/revocation, scoped receipts, cross-user isolation, erasure and concurrent approval/deletion.');
+ const {verifyBillingRedis}=await import('./verify-billing-redis.mjs');await verifyBillingRedis(command);
 }finally{
  // The empty-service assertion above plus explicit opt-in confines cleanup to test data.
  await command('FLUSHDB');

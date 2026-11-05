@@ -46,7 +46,7 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
  }
  async function perform(action){
   if(busy)return;busy=true;
-  const buttons=['appleAccountSignIn','appleAccountRefresh','appleAccountSignOut','appleAccountDelete','sandboxBuyCredits','sandboxCheckCredits'].map($).filter(Boolean);
+  const buttons=['appleAccountSignIn','appleAccountRefresh','appleAccountSignOut','appleAccountDelete','sandboxBuyCredits','sandboxCheckCredits','sandboxRequestRefund'].map($).filter(Boolean);
   buttons.forEach(button=>{button.disabled=true});
   try{await action()}catch(e){showError(e)}finally{
    busy=false;
@@ -71,6 +71,13 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
  });
  if(buy){
   retry.onclick=()=>perform(refresh);
+  $('sandboxRequestRefund').onclick=()=>perform(async()=>{
+   const account=await api('status');
+   const result=await native.requestSandboxRefund({accountId:account.accountId});
+   status.textContent=result.submitted
+    ?'Sandbox refund requested. Check your balance after Apple processes it.'
+    :'Sandbox refund request cancelled.';
+  });
   buy.onclick=()=>perform(async()=>{
    const approval=await api('preparePurchase',{accessCode:accessCode()});
    const result=await native.purchase({accountId:approval.accountId});

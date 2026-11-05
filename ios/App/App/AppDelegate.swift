@@ -11,6 +11,7 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "products", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestSandboxRefund", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unfinished", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "signIn", returnType: CAPPluginReturnPromise),
@@ -122,6 +123,41 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
                 @unknown default: call.reject("Unexpected App Store purchase state.")
                 }
             } catch { call.reject("Purchase could not be completed. Pending purchases can be retried safely.") }
+        }
+    }
+    @objc func requestSandboxRefund(_ call: CAPPluginCall) {
+        guard Bundle.main.object(forInfoDictionaryKey: "SKIncludeConsumableInAppPurchaseHistory") as? Bool == true,
+              let value = call.getString("accountId"), let account = UUID(uuidString: value) else {
+            call.reject("Sandbox refund testing is unavailable.")
+            return
+        }
+        Task { @MainActor in
+            do {
+                guard case .verified(let appTransaction) = try await AppTransaction.shared,
+                      appTransaction.environment == .sandbox,
+                      let scene = self.bridge?.viewController?.view.window?.windowScene else {
+                    call.reject("Open the TestFlight app to request a sandbox refund.")
+                    return
+                }
+                var latestPurchase: Transaction?
+                for await result in Transaction.all {
+                    guard case .verified(let transaction) = result,
+                          transaction.environment == .sandbox,
+                          transaction.productID == productID,
+                          transaction.appAccountToken == account,
+                          transaction.revocationDate == nil else { continue }
+                    if let previous = latestPurchase, previous.purchaseDate >= transaction.purchaseDate { continue }
+                    latestPurchase = transaction
+                }
+                guard let purchase = latestPurchase else {
+                    call.reject("No eligible sandbox purchase was found for this account.")
+                    return
+                }
+                let status = try await Transaction.beginRefundRequest(for: purchase.id, in: scene)
+                call.resolve(["submitted": status == .success])
+            } catch {
+                call.reject("Apple could not open the sandbox refund request.")
+            }
         }
     }
     @objc func unfinished(_ call: CAPPluginCall) {

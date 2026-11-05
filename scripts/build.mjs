@@ -45,7 +45,10 @@ if(accountPreview){
   .replace('<!-- SANDBOX_CREDITS -->',`<p id="sandboxCreditBalance" role="status"></p>
    <button type="button" id="sandboxBuyCredits" class="primary" disabled>Loading Verio Credits pack…</button>
    <button type="button" id="sandboxCheckCredits" class="secondary">Check balance</button>
-   <p>Sandbox purchase · No charge</p>`);
+   <p>Sandbox purchase · No charge</p>
+   <details><summary>Sandbox refund test</summary>
+    <button type="button" id="sandboxRequestRefund" class="secondary">Request refund for latest pack</button>
+   </details>`);
  html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+panel);
 }
 if (profile.channel === 'release') {

@@ -15,6 +15,7 @@ else return {0,409} end
 redis.call('SET',KEYS[1],cjson.encode(r));return {1,cjson.encode(r)}
 `;
 export default async req=>{
+ if(!(Netlify.env.get('VERIO_ADMIN_TOKEN')||'').trim())return response({error:'Administrator service is not configured.'},503);
  if(!admin(req))return response({error:'Unauthorized'},401);
  try {
   if(req.method==='GET') {

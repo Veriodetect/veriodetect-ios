@@ -1,5 +1,7 @@
-export function installAppleAccount({native,request,onAccountDeleted=()=>{}}){
+export function installAppleAccount({native,request,accessCode=()=>'',onAccountDeleted=()=>{}}){
  const $=id=>document.getElementById(id),status=$('appleAccountStatus');let session='',busy=false;
+ const buy=$('sandboxBuyCredits'),retry=$('sandboxCheckCredits'),balance=$('sandboxCreditBalance');
+ let maxFetchCredits=102, productAvailable=false;
  const panels=['appleAccountSignedOut','appleAccountSignedIn','appleAccountRetry'];
  function showPanel(id){
   if(id!=='appleAccountSignedIn')$('appleAccountSignedIn').querySelector('details').open=false;
@@ -9,6 +11,22 @@ export function installAppleAccount({native,request,onAccountDeleted=()=>{}}){
  async function api(action,extra={}){
   const result=await request('/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',...(session?{authorization:'Bearer '+session}:{})},body:JSON.stringify({action,...extra})});
   const data=await result.json();if(!result.ok)throw Error(data.error||'Account request failed');return data;
+ }
+ function showBalance(value){balance.textContent=`${value} test credits available`}
+ async function deliver(transaction){
+  const claim=await api('claim',{signedTransaction:transaction.signedTransaction});
+  if(claim.transactionId!==transaction.transactionId)throw Error('Purchase delivery was not confirmed.');
+  showBalance(claim.balance);
+  await native.finish({transactionId:transaction.transactionId});
+ }
+ async function refreshCredits(){
+  const credits=await api('credits');
+  maxFetchCredits=credits.maxFetchCredits;
+  showBalance(credits.balance);
+  for(const transaction of (await native.unfinished()).transactions)await deliver(transaction);
+  const product=(await native.products()).products.find(item=>item.id===credits.productId);
+  productAvailable=Boolean(product);
+  buy.textContent=product?`Test purchase · ${product.price}`:'Test credit pack unavailable';
  }
  async function refresh(){
   try{
@@ -24,11 +42,16 @@ export function installAppleAccount({native,request,onAccountDeleted=()=>{}}){
    showPanel(session?'appleAccountSignedIn':'appleAccountSignedOut');
    status.textContent=session?'Signed in with Apple.':'Not signed in.';
   }catch(e){showPanel('appleAccountRetry');throw e}
+  if(session&&buy)await refreshCredits();
  }
  async function perform(action){
   if(busy)return;busy=true;
-  const ids=['appleAccountSignIn','appleAccountRefresh','appleAccountSignOut','appleAccountDelete'];ids.forEach(id=>$(id).disabled=true);
-  try{await action()}catch(e){showError(e)}finally{busy=false;ids.forEach(id=>$(id).disabled=false)}
+  const buttons=['appleAccountSignIn','appleAccountRefresh','appleAccountSignOut','appleAccountDelete','sandboxBuyCredits','sandboxCheckCredits'].map($).filter(Boolean);
+  buttons.forEach(button=>{button.disabled=true});
+  try{await action()}catch(e){showError(e)}finally{
+   busy=false;
+   buttons.forEach(button=>{button.disabled=button===buy&&!productAvailable});
+  }
  }
  $('appleAccountSignIn').onclick=()=>perform(async()=>{
   status.textContent='Signing in…';const challenge=await api('challenge'),result=await native.signIn(challenge);
@@ -46,5 +69,25 @@ export function installAppleAccount({native,request,onAccountDeleted=()=>{}}){
   const result=await api('delete',{confirm:true});if(result.deleted!==true)throw Error('Deletion was not confirmed.');
   await native.clearSession();session='';showPanel('appleAccountSignedOut');onAccountDeleted();status.textContent='Preview account deleted and Apple sign-in revoked.';
  });
+ if(buy){
+  retry.onclick=()=>perform(refresh);
+  buy.onclick=()=>perform(async()=>{
+   const approval=await api('preparePurchase',{accessCode:accessCode()});
+   const result=await native.purchase({accountId:approval.accountId});
+   if(result.status==='purchased'){await deliver(result);status.textContent='Test credits added.'}
+   else if(result.status==='pending')status.textContent='Test purchase pending. Tap Check test balance to check again.';
+   else if(result.status==='cancelled')status.textContent='Test purchase cancelled.';
+  });
+ }
  perform(refresh);
+ return {
+  async fetchWithCredits(username){
+   if(!session)throw Error('Sign in with Apple under About before using test credits.');
+   if(busy)throw Error('Wait for the current account operation to finish.');
+   if(!confirm(`Fetch from X for up to ${maxFetchCredits} test credits?`))throw Error('Fetch cancelled.');
+   const result=await api('fetchWithCredits',{username,accessCode:accessCode(),operationId:crypto.randomUUID()});
+   showBalance(result.balance);
+   return result;
+  }
+ };
 }

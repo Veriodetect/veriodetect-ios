@@ -5,7 +5,9 @@ import {addM2Results,addM2ShareButton} from './m2-results.mjs';
 const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
 const profile = readProfile();
 const accountPreview=process.env.LIVE_X_ACCOUNT_PREVIEW==='1';
+const sandboxCredits=process.env.LIVE_X_SANDBOX_CREDITS==='1';
 if(accountPreview&&profile.channel!=='staging')throw Error('Account preview is staging-only.');
+if(sandboxCredits&&!accountPreview)throw Error('Sandbox credits require the staging account preview.');
 const u = new URL(profile.origin);
 fs.rmSync('www', {recursive:true, force:true});
 fs.mkdirSync('www', {recursive:true});
@@ -15,7 +17,12 @@ const registrationMarker='// Manual beta access request (does not grant access o
 if(!code.includes(registrationMarker))throw Error('Registration source boundary changed.');
 code=code.slice(0,code.indexOf(registrationMarker));
 code=addM2Results(code);
-if(accountPreview)code+="\ninstallAppleAccount({native:registerPlugin('VerioCredits'),request:nativeFetch});\n";
+if(sandboxCredits){
+ const oldFetch='await apiJSON(`/api/x-posts?username=${encodeURIComponent(username)}`,{xAuth:true})';
+ if(!code.includes(oldFetch))throw Error('Live X fetch integration changed.');
+ code=code.replace(oldFetch,'await appleAccount.fetchWithCredits(username)');
+}
+if(accountPreview)code+="\nconst appleAccount=installAppleAccount({native:registerPlugin('VerioCredits'),request:nativeFetch,accessCode:()=>$('#xAccessCode')?.value.trim()||localStorage.getItem(X_CODE)||''});\n";
 code+="\ninstallAccessLifecycle({request:nativeFetch,onDeleted:()=>{latest=null;xImportedPosts=null;xImportedName='';$('#thread').value='';$('#xPosts').value='';renderHistory();}});\n";
 const replace = (a,b) => {if(!code.includes(a)) throw Error(`Source changed: ${a}`);code=code.replace(a,b);};
 replace("'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm'", "'fflate'");
@@ -31,7 +38,15 @@ fs.copyFileSync('node_modules/fflate/LICENSE','www/fflate-LICENSE.txt');
 // ZIP metadata still says 0.7.8 / 0.7.5; correct only the packaged About label.
 let html = fs.readFileSync('www/index.html','utf8').replace(/VerioDetect v0\.7\.\d+/g, `VerioDetect v${version}${profile.channel === 'staging' ? ' Staging' : ''}`);
 html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+fs.readFileSync('client/access-panel.html','utf8'));
-if(accountPreview)html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+fs.readFileSync('client/apple-account.html','utf8'));
+if(accountPreview){
+ let panel=fs.readFileSync('client/apple-account.html','utf8');
+ if(sandboxCredits)panel=panel
+  .replace('Try Apple sign-in for future Live X credit recovery. Local analysis needs no account, and this preview has no charges.','Buy test credits for fresh Live X requests. Local analysis uses no credits.')
+  .replace('<!-- SANDBOX_CREDITS -->',`<p id="sandboxCreditBalance" role="status"></p>
+   <button type="button" id="sandboxBuyCredits" class="primary" disabled>Loading test credit pack…</button>
+   <button type="button" id="sandboxCheckCredits" class="secondary">Check test balance</button>`);
+ html=html.replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+panel);
+}
 if (profile.channel === 'release') {
   html = html.replaceAll('Authorized beta access', 'Approved X access').replaceAll('authorized beta testers', 'approved users');
   const escape = value => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

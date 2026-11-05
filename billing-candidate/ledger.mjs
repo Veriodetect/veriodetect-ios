@@ -3,6 +3,10 @@
 import {CATALOG,quoteFetch} from './catalog.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const PURCHASE_SCRIPT=`
+if KEYS[3] then
+ local account=redis.call('GET',KEYS[3])
+ if not account or cjson.decode(account).state~='active' then return {-3,0} end
+end
 local owner=redis.call('GET',KEYS[2]);if owner then
  if owner~=ARGV[1] then return {-1,0} end
  return {0,tonumber(redis.call('GET',KEYS[1]) or '0')} end
@@ -19,7 +23,7 @@ local state=redis.call('HGET',KEYS[2],'state');if not state then return {-1,0} e
 if state~='reserved' then return {0,tonumber(redis.call('GET',KEYS[1]) or '0')} end
 local held=tonumber(redis.call('HGET',KEYS[2],'held'));local charge=tonumber(ARGV[1]);if charge<0 or charge>held then return {-2,0} end
 local balance=redis.call('INCRBY',KEYS[1],held-charge);redis.call('HSET',KEYS[2],'state',ARGV[2],'charged',ARGV[1]);return {1,balance}`;
-export function createLedger(redis,{environment,accountId}){
+export function createLedger(redis,{environment,accountId,requireActiveAccount=false}){
  if(!['Production','Sandbox'].includes(environment)||!uuid.test(accountId))throw Error('Invalid billing account');
  const root='verio:billing:'+environment.toLowerCase()+':',owner=accountId.toLowerCase(),balanceKey=root+'balance:'+owner;
  const operationKey=id=>{if(!uuid.test(id))throw Error('Invalid operation');return root+'operation:'+owner+':'+id.toLowerCase()};
@@ -28,7 +32,9 @@ export function createLedger(redis,{environment,accountId}){
   async creditVerifiedPurchase(transactionId){
    if(!/^\d{1,30}$/.test(transactionId))throw Error('Invalid transaction');
    // The credit amount is never accepted from the client. Transactions never expire.
-   const [state,balance]=await redis('EVAL',PURCHASE_SCRIPT,2,balanceKey,root+'transaction:'+transactionId,owner,CATALOG.credits);
+   const keys=[balanceKey,root+'transaction:'+transactionId];
+   if(requireActiveAccount)keys.push('verio:identity:account:'+owner);
+   const [state,balance]=await redis('EVAL',PURCHASE_SCRIPT,keys.length,...keys,owner,CATALOG.credits);
    if(Number(state)<0)throw Error('Purchase claim rejected');return {credited:Number(state)===1,balance:Number(balance)};
   },
   async reserve(operationId){

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import {generateKeyPairSync,sign} from 'node:crypto';
+import {generateKeyPairSync,randomUUID,sign} from 'node:crypto';
 import {identityService} from '../billing-candidate/identity-service.mjs';
+import {createLedger} from '../billing-candidate/ledger.mjs';
+import {sha} from '../backend-candidate/netlify/functions/_access.mjs';
 export async function verifyIdentityRedis(redis){
  const rsa=generateKeyPairSync('rsa',{modulusLength:2048}),ec=generateKeyPairSync('ec',{namedCurve:'P-256'});
  const configuration={privateKey:ec.privateKey.export({type:'pkcs8',format:'pem'}),keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',tokenSecret:'t'.repeat(40)};
@@ -31,16 +33,21 @@ export async function verifyIdentityRedis(redis){
  await assert.rejects(service.authenticate(recovered.session),/sign in again/);
  // Exercise the actual staged HTTP handler, including Apple's revocation failure path.
  const oldFetch=globalThis.fetch,oldNetlify=globalThis.Netlify;
- let revokeOk=false;
- globalThis.Netlify={env:{get:name=>({APPLE_ACCOUNT_PREVIEW_ENABLED:'1',APPLE_SIGNIN_PRIVATE_KEY:configuration.privateKey,APPLE_SIGNIN_KEY_ID:configuration.keyId,APPLE_SIGNIN_TEAM_ID:configuration.teamId,APPLE_SIGNIN_TOKEN_SECRET:configuration.tokenSecret})[name]||oldNetlify.env.get(name)}};
+ let revokeOk=false,xLookups=0,xFails=false;
+ globalThis.Netlify={env:{get:name=>({X_BEARER_TOKEN:'test-x-token',APPLE_ACCOUNT_PREVIEW_ENABLED:'1',APPLE_SIGNIN_PRIVATE_KEY:configuration.privateKey,APPLE_SIGNIN_KEY_ID:configuration.keyId,APPLE_SIGNIN_TEAM_ID:configuration.teamId,APPLE_SIGNIN_TOKEN_SECRET:configuration.tokenSecret})[name]||oldNetlify.env.get(name)}};
  globalThis.fetch=async(url,options)=>{
   if(url==='https://appleid.apple.com/auth/token')return {ok:true,json:async()=>({refresh_token:'private-test-refresh',id_token:currentToken})};
   if(url==='https://appleid.apple.com/auth/revoke')return {ok:revokeOk};
+  if(String(url).startsWith('https://api.x.com/2/users/by/username/')){
+   xLookups++;
+   return Response.json(xFails?{title:'Test lookup failed'}:{data:{id:'1',username:'example'}},{status:xFails?502:200});
+  }
+  if(String(url).startsWith('https://api.x.com/2/users/1/tweets'))return Response.json({data:[{id:'2',created_at:'2026-01-01T00:00:00Z'}]});
   return oldFetch(url,options);
  };
  try{
   const {default:handler}=await import('../billing-candidate/netlify/functions/live-x-account.mjs');
-  const request=(body,session='')=>new Request('https://example.invalid/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+session},body:JSON.stringify(body)});
+  const request=(body,session='',origin='https://example.invalid')=>new Request(origin+'/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+session},body:JSON.stringify(body)});
   const challenge=await (await handler(request({action:'challenge'}))).json();currentToken=makeToken(challenge.nonce);
   const signed=await handler(request({action:'signin',...challenge,identityToken:currentToken,authorizationCode:'test-authorization-code'}));assert.equal(signed.status,200);
   const login=await signed.json();const status=await handler(request({action:'status'},login.session));assert.equal(status.status,200);
@@ -51,6 +58,28 @@ export async function verifyIdentityRedis(redis){
   revokeOk=true;assert.equal((await handler(request({action:'delete',confirm:true},login.session))).status,200);
   assert.equal((await handler(request({action:'status'},login.session))).status,400);
   assert.equal(await redis('GET','verio:identity:account:'+login.accountId),null);
+  const challenge2=await (await handler(request({action:'challenge'}))).json();currentToken=makeToken(challenge2.nonce);
+  const sandboxLogin=await (await handler(request({action:'signin',...challenge2,identityToken:currentToken,authorizationCode:'test-authorization-code'}))).json();
+  const sandbox=body=>handler(request(body,sandboxLogin.session,'https://veriodetect-staging.netlify.app'));
+  const accessCode='b'.repeat(48);
+  const operation={action:'fetchWithCredits',operationId:randomUUID(),username:'example',accessCode};
+  assert.equal((await sandbox(operation)).status,401);
+  await redis('SET','verio:code:'+await sha(accessCode),JSON.stringify({status:'active',quota:3}));
+  assert.equal((await handler(request({action:'credits'},sandboxLogin.session))).status,400);
+  assert.equal((await sandbox(operation)).status,409);
+  assert.equal(xLookups,0);
+  assert.equal((await sandbox({action:'claim',signedTransaction:'forged.purchase.proof'})).status,400);
+  const ledger=createLedger(redis,{environment:'Sandbox',accountId:sandboxLogin.accountId,requireActiveAccount:true});
+  await ledger.creditVerifiedPurchase('920000001');
+  const fetched=await sandbox(operation);assert.equal(fetched.status,200);
+  assert.equal((await fetched.json()).creditsUsed,3);
+  assert.equal(await ledger.balance(),1017);
+  assert.equal((await sandbox(operation)).status,409);
+  assert.equal(xLookups,1);
+  xFails=true;
+  assert.equal((await sandbox({...operation,operationId:randomUUID()})).status,502);
+  assert.equal(await ledger.balance(),1017);
+  assert.equal((await sandbox({action:'delete',confirm:true})).status,409);
  }finally{globalThis.fetch=oldFetch;globalThis.Netlify=oldNetlify;}
  console.log('PASS: real Redis one-use Apple nonce, concurrent replay rejection, stable account recovery, encrypted refresh token and session generation invalidation.');
  console.log('PASS: preview HTTP sign-in/status, purchases disabled, deletion confirmation and Apple revocation failure preserves account.');

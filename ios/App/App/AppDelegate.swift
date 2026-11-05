@@ -103,6 +103,11 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
         }
         Task {
             do {
+                guard case .verified(let appTransaction) = try await AppTransaction.shared,
+                      appTransaction.environment == .sandbox else {
+                    call.reject("Test purchases require a verified TestFlight sandbox build.")
+                    return
+                }
                 guard let product = try await Product.products(for: [productID]).first else {
                     call.reject("This credit pack is not currently available."); return
                 }

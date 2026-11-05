@@ -43,7 +43,7 @@ workflows:
         submit_to_app_store: false
 
   ios-apple-account-preview:
-    name: VerioDetect - Apple Account Preview
+    name: VerioDetect - Live X Credits Sandbox
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
@@ -61,6 +61,7 @@ workflows:
         BUILD_NUMBER_BASE: "100"
         APP_CHANNEL: staging
         LIVE_X_ACCOUNT_PREVIEW: "1"
+        LIVE_X_SANDBOX_CREDITS: "1"
         NETLIFY_ORIGIN: "https://veriodetect-staging.netlify.app"
     scripts:
       - name: Install locked dependencies

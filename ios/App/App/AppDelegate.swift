@@ -1,19 +1,83 @@
 import UIKit
 import Capacitor
 import StoreKit
+import AuthenticationServices
+import Security
 
 @objc(VerioCreditsPlugin)
-public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin {
+public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     public let identifier = "VerioCreditsPlugin"
     public let jsName = "VerioCredits"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "products", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unfinished", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "signIn", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "session", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearSession", returnType: CAPPluginReturnPromise)
     ]
     private let productID = "com.veriodetect.app.xcredits1020"
     private var updates: Task<Void, Never>?
+    private var signInCall: CAPPluginCall?
+    private var signInState: String?
+    private let sessionService = "com.veriodetect.app.live-x.session"
+    @objc func signIn(_ call: CAPPluginCall) {
+        guard let nonce = call.getString("nonce"), nonce.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+              let state = call.getString("challengeId"), UUID(uuidString: state) != nil else { call.reject("Invalid sign-in challenge."); return }
+        DispatchQueue.main.async {
+            guard self.signInCall == nil else { call.reject("Sign-in is already in progress."); return }
+            self.signInCall = call; self.signInState = state
+            let request = ASAuthorizationAppleIDProvider().createRequest()
+            request.requestedScopes = [.email]; request.nonce = nonce; request.state = state
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            controller.delegate = self; controller.presentationContextProvider = self; controller.performRequests()
+        }
+    }
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        return self.bridge?.viewController?.view.window ?? ASPresentationAnchor()
+    }
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        defer { signInCall = nil; signInState = nil }
+        guard let call = signInCall, let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              credential.state == signInState,
+              let token = credential.identityToken, let code = credential.authorizationCode,
+              let tokenString = String(data: token, encoding: .utf8), let codeString = String(data: code, encoding: .utf8) else {
+            signInCall?.reject("Apple sign-in could not be verified."); return
+        }
+        call.resolve(["status": "signedIn", "identityToken": tokenString, "authorizationCode": codeString])
+    }
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        if (error as? ASAuthorizationError)?.code == .canceled { signInCall?.resolve(["status": "cancelled"]) }
+        else { signInCall?.reject("Apple sign-in could not be completed.") }
+        signInCall = nil; signInState = nil
+    }
+    private func sessionQuery() -> [String: Any] {
+        return [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: sessionService, kSecAttrAccount as String: "live-x"]
+    }
+    @objc func session(_ call: CAPPluginCall) {
+        var query = sessionQuery(); query[kSecReturnData as String] = true; query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?; let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { call.resolve(["session": ""]); return }
+        guard status == errSecSuccess, let data = result as? Data, let value = String(data: data, encoding: .utf8) else { call.reject("Secure sign-in storage is unavailable."); return }
+        call.resolve(["session": value])
+    }
+    @objc func saveSession(_ call: CAPPluginCall) {
+        guard let value = call.getString("session"), value.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { call.reject("Invalid session."); return }
+        var query = sessionQuery(); let data = Data(value.utf8)
+        let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            query[kSecValueData as String] = data; query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { call.reject("Could not save sign-in securely."); return }
+        } else if status != errSecSuccess { call.reject("Could not save sign-in securely."); return }
+        call.resolve()
+    }
+    @objc func clearSession(_ call: CAPPluginCall) {
+        let status = SecItemDelete(sessionQuery() as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { call.reject("Could not clear sign-in securely."); return }
+        call.resolve()
+    }
     public override func load() {
         updates = Task { [weak self] in
             for await result in Transaction.updates {

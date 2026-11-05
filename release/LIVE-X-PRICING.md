@@ -28,3 +28,15 @@ Feature branch feat/live-x-credits contains candidate integer pricing, Apple pro
 Pinned official Apple server library3.1.0 and public Apple PKI roots via isolated GitHub dependency job because local npm DNS is unavailable. Added candidate signed-proof verification with online certificate checks and native StoreKit product/purchase/pending/unfinished/finish bridge. No JS payment UI, deployed endpoints, ledger enforcement, refund notifications or recovery flow enabled yet. Native bridge compile and forged-proof checks pending CI. Finish is deferred until server durable credit confirmation.
 
 Owner choice pending: Sign in with Apple plus manual approval, or existing access-code system with support-assisted balance recovery. This decision affects linking purchases to recoverable approved accounts; local analysis remains without login or credits. Production functions, website, TestFlight build121 and App Store sale/review state unchanged.
+
+Owner selected Sign in with Apple plus manual approval for live-X account/credit recovery. Local analysis does not require sign-in. Native StoreKit candidate compiled successfully in unsigned macOS CI; official Apple proof rejection, packaging, model/client and real Redis ledger checks passed in run41952540506. Draft billing PR: https://github.com/Veriodetect/veriodetect-ios/pull/3 . Production and build121 unchanged.
+
+Apple Developer account inspection confirmed app com.veriodetect.app, Cquestra B.V., team67NF385KM3. Sign In with Apple capability currently unchecked. Action-time confirmation requested before enabling; user will create/download any private authentication key personally. No capability, key or credential changed yet. Sign-in account/session/revocation/recovery integration remains to be implemented before customer charging.
+
+## Apple sign-in capability enabled
+Owner explicitly confirmed enable Sign in with Apple for com.veriodetect.app. Saved and verified enabled as primary App ID in developer team67NF385KM3. Apple warned existing provisioning profiles for the App ID are invalidated and must be regenerated for the next signed build; build121 on devices remains installed.
+
+Prepared key review: VerioDetect Sign In, Sign in with Apple only, primary Veriodetect (67NF385KM3.com.veriodetect.app). Stopped before Register; owner handoff for private key creation/download and secure storage. No private key value created/read/saved by agent. Key ID and private server configuration still pending. Do not upload .p8 to repository or chat.
+
+## Sign-in key registered by owner
+Apple UI confirms VerioDetect Sign In downloaded, Key ID9U9693H97Y, Sign in with Apple service only. Team ID67NF385KM3. Private .p8 contents have not been read or copied by agent. Prepared Netlify veriodetect-staging variable APPLE_SIGNIN_PRIVATE_KEY, secret flag enabled, Production deploy context within the STAGING site only. Owner entry/submission pending. APPLE_SIGNIN_KEY_ID and APPLE_SIGNIN_TEAM_ID will be added as identifiers after private-key submission. No production authentication secrets or new auth endpoints deployed.

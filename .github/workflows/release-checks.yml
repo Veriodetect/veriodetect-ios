@@ -21,6 +21,7 @@ jobs:
       - run: npm run build
       - run: npm run verify
       - run: node scripts/verify-billing.mjs
+      - run: node scripts/verify-apple-identity.mjs
       - run: node scripts/verify-apple-proof.mjs
         if: github.ref == 'refs/heads/feat/live-x-credits'
       - run: npm run verify:release

@@ -9,8 +9,10 @@ workflows:
       xcode: latest
       node: 22
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.veriodetect.app
+        provisioning_profiles:
+          - veriodetect-app-store-apple-signin
+        certificates:
+          - veriodetect-distribution
       vars:
         # Increase if moving this project to a new Codemagic application.
         BUILD_NUMBER_BASE: "100"
@@ -50,8 +52,10 @@ workflows:
       xcode: latest
       node: 22
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.veriodetect.app
+        provisioning_profiles:
+          - veriodetect-app-store-apple-signin
+        certificates:
+          - veriodetect-distribution
       vars:
         # Increase if moving this project to a new Codemagic application.
         BUILD_NUMBER_BASE: "100"
@@ -92,8 +96,10 @@ workflows:
       xcode: latest
       node: 22
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.veriodetect.app
+        provisioning_profiles:
+          - veriodetect-app-store-apple-signin
+        certificates:
+          - veriodetect-distribution
       vars:
         # Increase if moving this project to a new Codemagic application.
         BUILD_NUMBER_BASE: "100"

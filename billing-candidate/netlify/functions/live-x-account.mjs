@@ -1,19 +1,63 @@
-import {redis,response,readBody,sha} from '../../../backend-candidate/netlify/functions/_access.mjs';
+import {authorize,redis,response,sha} from '../../../backend-candidate/netlify/functions/_access.mjs';
 import {identityService} from '../../identity-service.mjs';
+import {createLedger} from '../../ledger.mjs';
+import {CATALOG,quoteFetch} from '../../catalog.mjs';
+import fetchXPosts from '../../../backend-candidate/netlify/functions/x-posts.mjs';
 import {recoverRefreshToken,revokeAppleToken} from '../../apple-identity.mjs';
 import {randomUUID} from 'node:crypto';
 const env=name=>(Netlify.env.get(name)||'').trim();
 export default async req=>{
- if(req.method!=='POST')return response({error:'Method not allowed',revision:'signin-key-format-2'},405);
+ if(req.method!=='POST')return response({error:'Method not allowed',revision:'sandbox-credits-1'},405);
  if(env('APPLE_ACCOUNT_PREVIEW_ENABLED')!=='1')return response({error:'Apple account preview is not enabled.'},503);
  try{
   const configuration={privateKey:env('APPLE_SIGNIN_PRIVATE_KEY'),keyId:env('APPLE_SIGNIN_KEY_ID'),teamId:env('APPLE_SIGNIN_TEAM_ID'),tokenSecret:env('APPLE_SIGNIN_TOKEN_SECRET')};
   if(!configuration.privateKey||configuration.tokenSecret.length<32)return response({error:'Apple sign-in service is not configured.'},503);
-  const service=identityService({redis,configuration}),body=await readBody(req);
+  const sandbox=new URL(req.url).origin==='https://veriodetect-staging.netlify.app';
+  const rawBody=await req.text();
+  if(rawBody.length>32000)return response({error:'Request too large.'},413);
+  const body=JSON.parse(rawBody||'{}');
+  if(rawBody.length>4096&&(!sandbox||body.action!=='claim'))return response({error:'Request too large.'},413);
+  const service=identityService({redis,configuration});
   if(body.action==='challenge')return response(await service.challenge());
   if(body.action==='signin')return response(await service.signIn(body));
   const session=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'').trim();
   const identity=await service.authenticate(session,{allowDeleting:body.action==='delete'});
+  if(sandbox&&['credits','preparePurchase','claim','fetchWithCredits'].includes(body.action)){
+   const environment='Sandbox';
+   const ledger=createLedger(redis,{environment,accountId:identity.accountId,requireActiveAccount:true});
+   if(body.action==='credits')return response({balance:await ledger.balance(),productId:CATALOG.productId,maxFetchCredits:quoteFetch().credits});
+   if(body.action==='preparePurchase'||body.action==='fetchWithCredits'){
+    const headers=new Headers({authorization:'Bearer '+(typeof body.accessCode==='string'?body.accessCode:'')});
+    const approval=await authorize({headers});
+    if(!approval.ok)return response({error:approval.error},approval.status);
+    if(body.action==='preparePurchase')return response({accountId:identity.accountId});
+    if(typeof body.username!=='string'||!/^[A-Za-z0-9_]{1,15}$/.test(body.username))return response({error:'Enter a valid X username.'},400);
+    if(typeof body.operationId!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.operationId))return response({error:'Invalid fetch request.'},400);
+    let reservation;
+    try{reservation=await ledger.reserve(body.operationId)}catch(error){
+     if(error.message==='Insufficient credits')return response({error:'You need 102 test credits available for a fresh fetch.'},409);
+     throw error;
+    }
+    if(!reservation.started)return response({error:'This fetch was already started. Check your test balance before trying again.'},409);
+    const url=new URL('/api/x-posts',req.url);
+    url.searchParams.set('username',body.username);
+    const fetched=await fetchXPosts(new Request(url,{headers}));
+    const data=await fetched.json();
+    if(!fetched.ok||!Array.isArray(data.posts)){
+     await ledger.refundFailedFetch(body.operationId);
+     return response({error:data.error||'X retrieval failed. No test credits were used.'},fetched.ok?502:fetched.status);
+    }
+    const settlement=await ledger.settle(body.operationId,data.posts.length);
+    return response({...data,balance:settlement.balance,creditsUsed:quoteFetch(data.posts.length).credits});
+   }
+   // An already purchased pack must be deliverable even if approval has since expired.
+   const {verifyPurchase}=await import('../../apple-verification.mjs');
+   let purchase;
+   try{purchase=await verifyPurchase(body.signedTransaction,{accountId:identity.accountId,environment})}
+   catch{return response({error:'Apple could not verify this sandbox purchase for the signed-in account.'},400)}
+   const credited=await ledger.creditVerifiedPurchase(purchase.transactionId);
+   return response({...credited,transactionId:purchase.transactionId});
+  }
   if(body.action==='status')return response({accountId:identity.accountId,email:identity.email,purchasesEnabled:false,message:'Apple account connected. Credit purchases are not enabled in this preview.'});
   if(body.action==='signout'){await service.signOut(session);return response({signedOut:true})}
   if(body.action==='delete'){
@@ -24,7 +68,8 @@ export default async req=>{
    if(!raw)return response({error:'Account no longer exists.'},401);
    const account=JSON.parse(raw);
    // Stop new sessions before revoking at Apple. Failed revocation remains retryable.
-   const lease=randomUUID(),started=await redis('EVAL',"local r=redis.call('GET',KEYS[1]);if not r then return 0 end;local a=cjson.decode(r);if a.state=='deleting' and tonumber(a.deleteAt or 0)>tonumber(ARGV[2])-60000 then return 0 end;a.state='deleting';a.deleteLease=ARGV[1];a.deleteAt=tonumber(ARGV[2]);redis.call('SET',KEYS[1],cjson.encode(a));return 1",1,key,lease,Date.now());
+   const lease=randomUUID(),started=await redis('EVAL',"if redis.call('EXISTS',KEYS[2])==1 then return -1 end;local r=redis.call('GET',KEYS[1]);if not r then return 0 end;local a=cjson.decode(r);if a.state=='deleting' and tonumber(a.deleteAt or 0)>tonumber(ARGV[2])-60000 then return 0 end;a.state='deleting';a.deleteLease=ARGV[1];a.deleteAt=tonumber(ARGV[2]);redis.call('SET',KEYS[1],cjson.encode(a));return 1",2,key,'verio:billing:sandbox:balance:'+identity.accountId,lease,Date.now());
+   if(Number(started)===-1)return response({error:'Credit-account deletion is not available in this preview.'},409);
    if(Number(started)!==1)return response({error:'Deletion is already in progress. Please retry in one minute.'},409);
    try{await revokeAppleToken(recoverRefreshToken(account.refreshToken,configuration.tokenSecret),configuration)}catch{
     await redis('EVAL',"local r=redis.call('GET',KEYS[1]);if r then local a=cjson.decode(r);if a.deleteLease==ARGV[1] then a.state='active';a.deleteLease=nil;a.deleteAt=nil;redis.call('SET',KEYS[1],cjson.encode(a)) end end;return 1",1,key,lease);

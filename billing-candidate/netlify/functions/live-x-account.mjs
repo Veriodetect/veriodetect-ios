@@ -35,17 +35,17 @@ export default async req=>{
     if(typeof body.operationId!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.operationId))return response({error:'Invalid fetch request.'},400);
     let reservation;
     try{reservation=await ledger.reserve(body.operationId)}catch(error){
-     if(error.message==='Insufficient credits')return response({error:'You need 102 test credits available for a fresh fetch.'},409);
+     if(error.message==='Insufficient credits')return response({error:'You need 102 Verio Credits available for a fresh fetch.'},409);
      throw error;
     }
-    if(!reservation.started)return response({error:'This fetch was already started. Check your test balance before trying again.'},409);
+    if(!reservation.started)return response({error:'This fetch was already started. Check your Verio Credits balance before trying again.'},409);
     const url=new URL('/api/x-posts',req.url);
     url.searchParams.set('username',body.username);
     const fetched=await fetchXPosts(new Request(url,{headers}));
     const data=await fetched.json();
     if(!fetched.ok||!Array.isArray(data.posts)){
      await ledger.refundFailedFetch(body.operationId);
-     return response({error:data.error||'X retrieval failed. No test credits were used.'},fetched.ok?502:fetched.status);
+     return response({error:data.error||'X retrieval failed. No Verio Credits were used.'},fetched.ok?502:fetched.status);
     }
     const settlement=await ledger.settle(body.operationId,data.posts.length);
     return response({...data,balance:settlement.balance,creditsUsed:quoteFetch(data.posts.length).credits});

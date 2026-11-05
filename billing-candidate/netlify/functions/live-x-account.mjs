@@ -4,7 +4,7 @@ import {recoverRefreshToken,revokeAppleToken} from '../../apple-identity.mjs';
 import {randomUUID} from 'node:crypto';
 const env=name=>(Netlify.env.get(name)||'').trim();
 export default async req=>{
- if(req.method!=='POST')return response({error:'Method not allowed',revision:'signin-diagnostic-1'},405);
+ if(req.method!=='POST')return response({error:'Method not allowed',revision:'signin-key-format-2'},405);
  if(env('APPLE_ACCOUNT_PREVIEW_ENABLED')!=='1')return response({error:'Apple account preview is not enabled.'},503);
  try{
   const configuration={privateKey:env('APPLE_SIGNIN_PRIVATE_KEY'),keyId:env('APPLE_SIGNIN_KEY_ID'),teamId:env('APPLE_SIGNIN_TEAM_ID'),tokenSecret:env('APPLE_SIGNIN_TOKEN_SECRET')};

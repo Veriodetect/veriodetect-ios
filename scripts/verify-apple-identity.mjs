@@ -17,4 +17,9 @@ const ec=generateKeyPairSync('ec',{namedCurve:'P-256'}),pem=ec.privateKey.export
 const secret=appleClientSecret({privateKey:pem,keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',now});const parts=secret.split('.');
 assert(verify('sha256',Buffer.from(parts[0]+'.'+parts[1]),{key:ec.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(parts[2],'base64url')));
 assert.equal(JSON.parse(Buffer.from(parts[1],'base64url')).exp,now+300);
+for(const formatted of [pem.replace(/\n/g,'\\n'),pem.replace(/\n/g,'\\r\\n'),pem.replace(/\n/g,' ')]){
+ const [header,payload,signature]=appleClientSecret({privateKey:formatted,keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',now}).split('.');
+ assert(verify('sha256',Buffer.from(header+'.'+payload),{key:ec.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'base64url')));
+}
+assert.throws(()=>appleClientSecret({privateKey:'-----BEGIN PRIVATE KEY----- bad -----END PRIVATE KEY-----',keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',now}),/private key format is invalid/);
 console.log('PASS: Apple JWT signature/audience/issuer/nonce/time validation, attack rejection, short-lived client secret and authenticated refresh-token encryption.');

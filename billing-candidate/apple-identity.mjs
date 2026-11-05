@@ -25,13 +25,17 @@ export async function loadAppleKeys(fetchImpl=fetch){
 export function appleClientSecret({privateKey,keyId,teamId,now=Math.floor(Date.now()/1000)}){
  if(!/^[A-Z0-9]{10}$/.test(keyId||'')||!/^[A-Z0-9]{10}$/.test(teamId||'')||!privateKey?.includes('BEGIN PRIVATE KEY'))throw Error('Apple sign-in service is not configured');
  const input=encode({alg:'ES256',kid:keyId})+'.'+encode({iss:teamId,iat:now,exp:now+300,aud:APPLE,sub:CATALOG.bundleId});
- return input+'.'+sign('sha256',Buffer.from(input),{key:privateKey,dsaEncoding:'ieee-p1363'}).toString('base64url');
+ try{return input+'.'+sign('sha256',Buffer.from(input),{key:privateKey,dsaEncoding:'ieee-p1363'}).toString('base64url')}catch{throw Error('Apple private key format is invalid')}
 }
 export async function exchangeAppleCode(code,configuration,{fetchImpl=fetch}={}){
  if(typeof code!=='string'||code.length<10||code.length>4000)throw Error('Invalid Apple authorization code');
  const body=new URLSearchParams({client_id:CATALOG.bundleId,client_secret:appleClientSecret(configuration),code,grant_type:'authorization_code'});
  const response=await fetchImpl(APPLE+'/auth/token',{method:'POST',redirect:'error',signal:AbortSignal.timeout(15000),headers:{'content-type':'application/x-www-form-urlencoded'},body});
- if(!response.ok)throw Error('Apple sign-in could not be completed');
+ if(!response.ok){let failure={};try{failure=await response.json()}catch{}
+  if(failure.error==='invalid_client')throw Error('Apple server authentication was rejected');
+  if(failure.error==='invalid_grant')throw Error('Apple authorization code expired or was already used');
+  throw Error('Apple sign-in could not be completed');
+ }
  const value=await response.json();if(typeof value.refresh_token!=='string'||typeof value.id_token!=='string')throw Error('Apple sign-in response was incomplete');
  return {refreshToken:value.refresh_token,identityToken:value.id_token};
 }

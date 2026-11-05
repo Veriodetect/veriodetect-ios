@@ -20,12 +20,14 @@ export function identityService({redis,configuration,fetchImpl=fetch}){
    if(!uuid.test(challengeId||''))throw Error('Invalid sign-in challenge');
    const key=prefix+'challenge:'+challengeId,nonce=await redis('GET',key);
    if(!nonce)throw Error('Sign-in challenge expired. Please sign in again.');
-   const keys=await loadAppleKeys(fetchImpl),identity=verifyIdentityToken(identityToken,{keys,nonce});
+   let keys,identity;
+   try{keys=await loadAppleKeys(fetchImpl)}catch{throw Error('Apple signing keys are temporarily unavailable')}
+   try{identity=verifyIdentityToken(identityToken,{keys,nonce})}catch{throw Error('Apple identity verification failed')}
    // Consume only after verifying Apple's signature; one successful use, even concurrently.
    const consumed=await redis('EVAL',"if redis.call('GET',KEYS[1])~=ARGV[1] then return 0 end;redis.call('DEL',KEYS[1]);return 1",1,key,nonce);
    if(Number(consumed)!==1)throw Error('Sign-in challenge already used');
    const exchanged=await exchangeAppleCode(authorizationCode,configuration,{fetchImpl});
-   const confirmed=verifyIdentityToken(exchanged.identityToken,{keys,nonce});
+   let confirmed;try{confirmed=verifyIdentityToken(exchanged.identityToken,{keys,nonce})}catch{throw Error('Apple exchanged identity verification failed')}
    if(confirmed.subjectHash!==identity.subjectHash)throw Error('Apple sign-in identity changed');
    const protectedToken=protectRefreshToken(exchanged.refreshToken,configuration.tokenSecret);
    const session=randomBytes(32).toString('hex');

@@ -35,9 +35,10 @@ export default async req=>{
    return response({deleted:true});
   }
   return response({error:'Unsupported account action.'},400);
- }catch{
+ }catch(e){
   // Never return Apple response bodies, tokens, key material or decoded identity claims.
-  return response({error:'Apple account operation could not be completed. Please sign in again or contact support.'},400);
+  const safe=['Access database not configured','Access database URL is invalid','Access database token was rejected','Access database connection failed','Access database unavailable','Access database error','Apple signing keys are temporarily unavailable','Apple identity verification failed','Apple exchanged identity verification failed','Apple sign-in service is not configured','Apple private key format is invalid','Apple server authentication was rejected','Apple authorization code expired or was already used','Apple sign-in could not be completed','Apple sign-in response was incomplete','Account token encryption is not configured','Sign-in challenge expired. Please sign in again.','Sign-in challenge already used','Please sign in again','Sign in with Apple to continue','This account is unavailable'];
+  return response({error:safe.includes(e.message)?e.message:'Apple account operation could not be completed. Please sign in again or contact support.'},400);
  }
 };
 export const config={path:'/api/live-x-account',rateLimit:{windowLimit:100,windowSize:3600,aggregateBy:['ip']}};

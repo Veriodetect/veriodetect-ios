@@ -2,7 +2,7 @@ import {authorize,redis,response,sha} from '../../../backend-candidate/netlify/f
 import {identityService} from '../../identity-service.mjs';
 import {createLedger} from '../../ledger.mjs';
 import {CATALOG,quoteFetch} from '../../catalog.mjs';
-import fetchXPosts from '../../../backend-candidate/netlify/functions/x-posts.mjs';
+import {fetchApprovedXPosts} from '../../../backend-candidate/netlify/functions/x-posts.mjs';
 import {recoverRefreshToken,revokeAppleToken} from '../../apple-identity.mjs';
 import {randomUUID} from 'node:crypto';
 const env=name=>(Netlify.env.get(name)||'').trim();
@@ -41,13 +41,14 @@ export default async req=>{
     if(!reservation.started)return response({error:'This fetch was already started. Check your Verio Credits balance before trying again.'},409);
     const url=new URL('/api/x-posts',req.url);
     url.searchParams.set('username',body.username);
-    const fetched=await fetchXPosts(new Request(url,{headers}));
+    const fetched=await fetchApprovedXPosts(new Request(url,{headers}));
     const data=await fetched.json();
     if(!fetched.ok||!Array.isArray(data.posts)){
      await ledger.refundFailedFetch(body.operationId);
      return response({error:data.error||'X retrieval failed. No Verio Credits were used.'},fetched.ok?502:fetched.status);
     }
     const settlement=await ledger.settle(body.operationId,data.posts.length);
+    if(!settlement.settled)return response({error:'This fetch expired. Your reserved credits were returned.'},409);
     return response({...data,balance:settlement.balance,creditsUsed:quoteFetch(data.posts.length).credits});
    }
    // An already purchased pack must be deliverable even if approval has since expired.

@@ -18,6 +18,7 @@ export async function verifyPurchase(jws,{accountId,environment}){
 export async function verifyNotification(jws,{environment}){
  if(typeof jws!=='string'||jws.length>60000)throw Error('Invalid notification');
  const v=verifier(environment),notification=await v.verifyAndDecodeNotification(jws);
+ if(!['REFUND','REFUND_REVERSED'].includes(notification.notificationType))return {notification};
  if(!notification.data?.signedTransactionInfo)throw Error('Missing notification transaction');
  const transaction=await v.verifyAndDecodeTransaction(notification.data.signedTransactionInfo);
  return {notification,transaction};

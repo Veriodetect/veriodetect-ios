@@ -13,8 +13,12 @@ export async function verifyBillingRedis(redis){
  assert.equal(purchases.filter(x=>x.credited).length,1);assert.equal(await ledger.balance(),1020);
  await assert.rejects(other.creditVerifiedPurchase('123456789'),/claim rejected/);
  assert.equal(await prod.balance(),0);assert.equal(await other.balance(),0);
- const reservations=await Promise.all(Array.from({length:15},(_,i)=>ledger.reserve(op(i+10)).catch(()=>null)));
- assert.equal(reservations.filter(x=>x?.started).length,10);assert.equal(await ledger.balance(),0);
+ // Reserve the IDs used by later assertions before racing the remaining balance.
+ for(const id of [10,11,12])assert.equal((await ledger.reserve(op(id))).started,true);
+ const reservations=await Promise.allSettled(Array.from({length:12},(_,i)=>ledger.reserve(op(i+13))));
+ assert.equal(reservations.filter(x=>x.status==='fulfilled'&&x.value.started).length,7);
+ for(const failure of reservations.filter(x=>x.status==='rejected'))assert.match(failure.reason.message,/Insufficient credits/);
+ assert.equal(await ledger.balance(),0);
  // A repeated request ID never triggers a second fetch or debit.
  const repeated=await ledger.reserve(op(10));assert.equal(repeated.started,false);assert.equal(repeated.state,'reserved');
  const settled=await Promise.all([ledger.settle(op(10),5),ledger.settle(op(10),5)]);

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import './verify-m2-results.mjs';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import {analyseM2, parseXStructured, filterXPosts} from '../web-source/m2.js';

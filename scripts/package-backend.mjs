@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {build} from 'esbuild';
+import {addM2Results,addM2ShareButton} from './m2-results.mjs';
 const target=path.resolve('backend-package');
 const channel=process.env.SITE_CHANNEL || 'staging';
 if(!['staging','production'].includes(channel))throw Error('Unsupported SITE_CHANNEL');
@@ -15,6 +16,7 @@ const marker='// Manual beta access request (does not grant access or expose adm
 if(!code.includes(marker))throw Error('Registration boundary changed');
 code=code.slice(0,code.indexOf(marker)).replace("'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm'","'fflate'")
  .replace("if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});",'// Network-served candidate; no stale source service worker.');
+code=addM2Results(code);
 code="import {installAccessLifecycle} from '../client/access-lifecycle.mjs';\n"+code+"\ninstallAccessLifecycle({request:fetch,onDeleted:()=>{latest=null;xImportedPosts=null;xImportedName='';$('#thread').value='';$('#xPosts').value='';renderHistory();}});\n";
 await build({stdin:{contents:code,resolveDir:process.cwd()+'/web-source',sourcefile:'app.js'},bundle:true,format:'esm',platform:'browser',target:'safari16',outfile:path.join(target,'app.js')});
 let html=fs.readFileSync(path.join(target,'index.html'),'utf8').replace('<h1 class="page-title">About VerioDetect</h1>','<h1 class="page-title">About VerioDetect</h1>'+fs.readFileSync('client/access-panel.html','utf8'));
@@ -26,7 +28,7 @@ if(channel==='production'){
  html=html.replace('<h3>Experimental evidence, not proof</h3>',`<p><a href="${escape(settings.privacyUrl)}" target="_blank" rel="noopener noreferrer">Privacy policy</a> · <a href="${escape(settings.supportUrl)}" target="_blank" rel="noopener noreferrer">Support</a></p><h3>Experimental evidence, not proof</h3>`);
  html=html.replace('Requests are reviewed manually. No access is granted automatically.','Live X access requires manual approval and is subject to daily limits. Name, email and your optional reason are sent to our server for review. See the Privacy policy in About.');
 }
-fs.writeFileSync(path.join(target,'index.html'),html);
+fs.writeFileSync(path.join(target,'index.html'),addM2ShareButton(html));
 fs.copyFileSync('node_modules/fflate/LICENSE',path.join(target,'fflate-LICENSE.txt'));
 fs.writeFileSync(path.join(target,'_headers'),'/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n/api/*\n  Cache-Control: no-store\n');
 console.log(`Prepared ${channel} backend-package. Functions require Netlify build bundling; nothing deployed locally.`);

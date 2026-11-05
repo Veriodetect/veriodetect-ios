@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import {build} from 'esbuild';
 import {readProfile} from './build-profile.mjs';
+import {addM2Results,addM2ShareButton} from './m2-results.mjs';
 const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
 const profile = readProfile();
 const u = new URL(profile.origin);
@@ -11,6 +12,7 @@ let code = fs.readFileSync('web-source/app.js','utf8');
 const registrationMarker='// Manual beta access request (does not grant access or expose admin credentials).';
 if(!code.includes(registrationMarker))throw Error('Registration source boundary changed.');
 code=code.slice(0,code.indexOf(registrationMarker));
+code=addM2Results(code);
 code+="\ninstallAccessLifecycle({request:nativeFetch,onDeleted:()=>{latest=null;xImportedPosts=null;xImportedName='';$('#thread').value='';$('#xPosts').value='';renderHistory();}});\n";
 const replace = (a,b) => {if(!code.includes(a)) throw Error(`Source changed: ${a}`);code=code.replace(a,b);};
 replace("'https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm'", "'fflate'");
@@ -33,6 +35,7 @@ if (profile.channel === 'release') {
   html = html.replace('Requests are reviewed manually. No access is granted automatically.', 'Live X access requires manual approval and is subject to daily limits. Name, email and your optional reason are sent to our server for review. See the Privacy policy in About.');
 }
 fs.writeFileSync('www/index.html', html);
+fs.writeFileSync('www/index.html',addM2ShareButton(html));
 fs.writeFileSync('www/build-info.json', JSON.stringify({...profile, version}, null, 2)+'\n');
 console.log(`Bundled v${version} for`,u.origin);
 

@@ -11,7 +11,8 @@ const environments=new Map([
 export default async function handleNotification(request){
  if(request.method!=='POST')return response({error:'Method not allowed'},405);
  const environment=environments.get(new URL(request.url).origin);
- if(!environment||Netlify.env.get('APPLE_REFUND_NOTIFICATIONS_ENABLED')!=='1'){
+ const enabledFlag=environment==='Sandbox'?'APPLE_ACCOUNT_PREVIEW_ENABLED':'APPLE_REFUND_NOTIFICATIONS_ENABLED';
+ if(!environment||Netlify.env.get(enabledFlag)!=='1'){
   return response({error:'Refund notifications are disabled'},503);
  }
 

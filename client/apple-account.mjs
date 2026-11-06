@@ -1,4 +1,4 @@
-export function installAppleAccount({native,request,accessCode=()=>'',onAccountDeleted=()=>{}}){
+export function installAppleAccount({native,request,accessCode=()=>'',onAccountDeleted=()=>{},release=false}){
  const $=id=>document.getElementById(id),status=$('appleAccountStatus');let session='',busy=false;
  const buy=$('sandboxBuyCredits'),retry=$('sandboxCheckCredits'),balance=$('sandboxCreditBalance');
  let maxFetchCredits=102, productAvailable=false;
@@ -26,7 +26,7 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
   for(const transaction of (await native.unfinished()).transactions)await deliver(transaction);
   const product=(await native.products()).products.find(item=>item.id===credits.productId);
   productAvailable=Boolean(product);
-  buy.textContent=product?'Buy 1,020 Verio Credits':'Verio Credits pack unavailable';
+  buy.textContent=product?`Buy 1,020 Verio Credits${release?` · ${product.price}`:''}`:'Verio Credits pack unavailable';
  }
  async function refresh(){
   try{
@@ -64,14 +64,15 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
   if(session)await api('signout');await native.clearSession();session='';await refresh();
  });
  $('appleAccountDelete').onclick=()=>perform(async()=>{
-  if(!session)throw Error('Sign in to the preview account first.');
-  if(!confirm('Permanently delete this Apple-linked preview account and revoke its Apple sign-in? Existing beta access-code registrations are separate.'))return;
+  if(!session)throw Error('Sign in to your account first.');
+  if(!confirm('Permanently delete this Apple-linked account and revoke its Apple sign-in? Live X access-code registrations are separate.'))return;
   const result=await api('delete',{confirm:true});if(result.deleted!==true)throw Error('Deletion was not confirmed.');
-  await native.clearSession();session='';showPanel('appleAccountSignedOut');onAccountDeleted();status.textContent='Preview account deleted and Apple sign-in revoked.';
+  await native.clearSession();session='';showPanel('appleAccountSignedOut');onAccountDeleted();status.textContent='Account deleted and Apple sign-in revoked.';
  });
  if(buy){
   retry.onclick=()=>perform(refresh);
-  $('sandboxRequestRefund').onclick=()=>perform(async()=>{
+  const refund=$('sandboxRequestRefund');
+  if(refund)refund.onclick=()=>perform(async()=>{
    const account=await api('status');
    const result=await native.requestSandboxRefund({accountId:account.accountId});
    status.textContent=result.submitted
@@ -82,8 +83,8 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
    const approval=await api('preparePurchase',{accessCode:accessCode()});
    const result=await native.purchase({accountId:approval.accountId});
    if(result.status==='purchased'){await deliver(result);status.textContent='Verio Credits added.'}
-   else if(result.status==='pending')status.textContent='Sandbox purchase pending. Tap Check balance to try again.';
-   else if(result.status==='cancelled')status.textContent='Sandbox purchase cancelled.';
+   else if(result.status==='pending')status.textContent='Purchase pending. Tap Check balance to try again.';
+   else if(result.status==='cancelled')status.textContent='Purchase cancelled.';
   });
  }
  perform(refresh);

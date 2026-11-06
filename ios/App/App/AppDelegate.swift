@@ -10,6 +10,7 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
     public let jsName = "VerioCredits"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "products", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "environment", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestSandboxRefund", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unfinished", returnType: CAPPluginReturnPromise),
@@ -20,6 +21,26 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
         CAPPluginMethod(name: "clearSession", returnType: CAPPluginReturnPromise)
     ]
     private let productID = "com.veriodetect.app.xcredits1020"
+    private var creditsMode: String? {
+        Bundle.main.object(forInfoDictionaryKey: "VerioCreditsEnvironment") as? String
+    }
+    private func purchaseEnvironment() async throws -> AppStore.Environment? {
+        guard case .verified(let transaction) = try await AppTransaction.shared else { return nil }
+        switch (creditsMode, transaction.environment) {
+        case ("Sandbox", .sandbox), ("AppStore", .sandbox): return .sandbox
+        case ("AppStore", .production): return .production
+        default: return nil
+        }
+    }
+    @objc func environment(_ call: CAPPluginCall) {
+        Task {
+            switch try? await purchaseEnvironment() {
+            case .some(.sandbox): call.resolve(["environment": "Sandbox"])
+            case .some(.production): call.resolve(["environment": "Production"])
+            default: call.reject("Apple could not verify this installation.")
+            }
+        }
+    }
     private var updates: Task<Void, Never>?
     private var signInCall: CAPPluginCall?
     private var signInState: String?
@@ -83,7 +104,8 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
         updates = Task { [weak self] in
             for await result in Transaction.updates {
                 guard let self = self else { return }
-                if case .verified(let transaction) = result, transaction.productID == self.productID {
+                if case .verified(let transaction) = result, transaction.productID == self.productID,
+                   let environment = try? await self.purchaseEnvironment(), transaction.environment == environment {
                     self.notifyListeners("transactionUpdated", data: ["transactionId": String(transaction.id), "signedTransaction": result.jwsRepresentation])
                 }
             }
@@ -91,6 +113,7 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
     }
     deinit { updates?.cancel() }
     @objc func products(_ call: CAPPluginCall) {
+        guard creditsMode != nil else { call.resolve(["products": []]); return }
         Task {
             do {
                 let products = try await Product.products(for: [productID])
@@ -104,9 +127,8 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
         }
         Task {
             do {
-                guard case .verified(let appTransaction) = try await AppTransaction.shared,
-                      appTransaction.environment == .sandbox else {
-                    call.reject("Test purchases require a verified TestFlight sandbox build.")
+                guard let environment = try await purchaseEnvironment() else {
+                    call.reject("Credit purchases are unavailable in this installation.")
                     return
                 }
                 guard let product = try await Product.products(for: [productID]).first else {
@@ -115,7 +137,8 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
                 let result = try await product.purchase(options: [.appAccountToken(account)])
                 switch result {
                 case .success(let verification):
-                    guard case .verified(let transaction) = verification else { call.reject("Apple could not verify this purchase."); return }
+                    guard case .verified(let transaction) = verification,
+                          transaction.environment == environment else { call.reject("Apple could not verify this purchase."); return }
                     // Finish only after the server confirms durable, idempotent credit delivery.
                     call.resolve(["status": "purchased", "transactionId": String(transaction.id), "signedTransaction": verification.jwsRepresentation])
                 case .pending: call.resolve(["status": "pending"])
@@ -162,9 +185,11 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
     }
     @objc func unfinished(_ call: CAPPluginCall) {
         Task {
+            guard let environment = try? await purchaseEnvironment() else { call.resolve(["transactions": []]); return }
             var pending: [[String: String]] = []
             for await result in Transaction.unfinished {
-                if case .verified(let transaction) = result, transaction.productID == productID {
+                if case .verified(let transaction) = result, transaction.productID == productID,
+                   transaction.environment == environment {
                     pending.append(["transactionId": String(transaction.id), "signedTransaction": result.jwsRepresentation])
                 }
                 if pending.count >= 100 { break }
@@ -175,8 +200,10 @@ public class VerioCreditsPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCon
     @objc func finish(_ call: CAPPluginCall) {
         guard let id = call.getString("transactionId") else { call.reject("Missing transaction."); return }
         Task {
+            guard let environment = try? await purchaseEnvironment() else { call.reject("Apple could not verify this installation."); return }
             for await result in Transaction.unfinished {
-                if case .verified(let transaction) = result, String(transaction.id) == id, transaction.productID == productID {
+                if case .verified(let transaction) = result, String(transaction.id) == id, transaction.productID == productID,
+                   transaction.environment == environment {
                     await transaction.finish(); call.resolve(); return
                 }
             }

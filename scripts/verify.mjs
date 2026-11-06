@@ -22,7 +22,19 @@ assert(!fs.existsSync('www/netlify'));
 assert(!fs.existsSync('www/access-admin.html'));
 assert(!bundle.includes('VERIO_ADMIN_TOKEN'));
 assert(!bundle.includes('UPSTASH_REDIS_REST_TOKEN'));
-assert(!bundle.includes(profile.channel==='staging'?'veriodetectbeta.netlify.app':'veriodetect-staging.netlify.app'));
+const releaseCredits=profile.channel==='release'&&process.env.LIVE_X_RELEASE_CREDITS==='1';
+if(!releaseCredits)assert(!bundle.includes(profile.channel==='staging'?'veriodetectbeta.netlify.app':'veriodetect-staging.netlify.app'));
+if(releaseCredits){
+ const routing=bundle.match(/(?:var|const) liveTransport = [\s\S]*?async function nativeFetch\(path, options\) \{[\s\S]*?\n\}/)?.[0];
+ assert(routing,'Missing compiled purchase environment routing');
+ for(const [environment,expected] of [['Production',profile.origin],['Sandbox','https://veriodetect-staging.netlify.app'],['Xcode',null]]){
+  const route=new Function('createNativeFetch','CapacitorHttp','creditsPlugin',routing+'\nreturn nativeFetch;')(
+   (_,origin)=>async()=>origin,null,{environment:async()=>({environment})});
+  if(expected)assert.equal(await route('/api/live-x-account'),expected);
+  else await assert.rejects(route('/api/live-x-account'),/could not verify/);
+ }
+ console.log('PASS: compiled release routes verified Sandbox and Production installations to separate servers.');
+}
 assert(bundle.includes(profile.origin));
 assert(!/\bfetch\s*\(/.test(bundle.slice(bundle.lastIndexOf('// web-source/app.js'))));
 const packagedHtml=fs.readFileSync('www/index.html','utf8');
@@ -31,6 +43,10 @@ if(profile.channel==='release') {
  assert(!packagedHtml.includes('Authorized beta access'));
  assert(packagedHtml.includes('Privacy policy'));
  assert(packagedHtml.includes('Support</a>'));
+ if(releaseCredits){
+  assert(packagedHtml.includes('id="sandboxBuyCredits"'));
+  assert(!packagedHtml.includes('id="sandboxRequestRefund"'));
+ }
 }
 const config=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));
 assert.equal(config.appId,'com.veriodetect.app');

@@ -47,7 +47,7 @@ export async function verifyIdentityRedis(redis){
  };
  try{
   const {default:handler}=await import('../billing-candidate/netlify/functions/live-x-account.mjs');
-  const request=(body,session='',origin='https://example.invalid')=>new Request(origin+'/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+session},body:JSON.stringify(body)});
+  const request=(body,session='',origin='https://veriodetect-staging.netlify.app')=>new Request(origin+'/api/live-x-account',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+session},body:JSON.stringify(body)});
   const challenge=await (await handler(request({action:'challenge'}))).json();currentToken=makeToken(challenge.nonce);
   const signed=await handler(request({action:'signin',...challenge,identityToken:currentToken,authorizationCode:'test-authorization-code'}));assert.equal(signed.status,200);
   const login=await signed.json();const status=await handler(request({action:'status'},login.session));assert.equal(status.status,200);
@@ -65,7 +65,9 @@ export async function verifyIdentityRedis(redis){
   const operation={action:'fetchWithCredits',operationId:randomUUID(),username:'example',accessCode};
   assert.equal((await sandbox(operation)).status,401);
   await redis('SET','verio:code:'+await sha(accessCode),JSON.stringify({status:'active',quota:3}));
-  assert.equal((await handler(request({action:'credits'},sandboxLogin.session))).status,400);
+  for(const origin of ['https://example.invalid','https://veriodetectbeta.netlify.app']){
+   assert.equal((await handler(request({action:'credits'},sandboxLogin.session,origin))).status,503);
+  }
   assert.equal((await sandbox(operation)).status,409);
   assert.equal(xLookups,0);
   assert.equal((await sandbox({action:'claim',signedTransaction:'forged.purchase.proof'})).status,400);

@@ -26,12 +26,16 @@ local previousDate=tonumber(redis.call('HGET',KEYS[3],'signedAt') or '0')
 if previousDate>=tonumber(ARGV[2]) then return 0 end
 local previousCredits=tonumber(redis.call('HGET',KEYS[3],'credits') or '0')
 local refundedCredits=tonumber(ARGV[3])
-if redis.call('EXISTS',KEYS[2])==1 then
+if redis.call('EXISTS',KEYS[2])==1 and redis.call('EXISTS',KEYS[4])==0 then
  redis.call('INCRBY',KEYS[1],previousCredits-refundedCredits)
 end
 redis.call('HSET',KEYS[3],'owner',ARGV[1],'signedAt',ARGV[2],'credits',ARGV[3])
 return 1`;
 export const RESERVE_SCRIPT=`
+if KEYS[4] then
+ local account=redis.call('GET',KEYS[4])
+ if not account or cjson.decode(account).state~='active' then return {-2,0} end
+end
 if redis.call('EXISTS',KEYS[2])==1 then return {0,redis.call('HGET',KEYS[2],'state')} end
 local balance=tonumber(redis.call('GET',KEYS[1]) or '0')
 if balance<tonumber(ARGV[1]) then return {-1,tostring(balance)} end
@@ -40,6 +44,7 @@ redis.call('HSET',KEYS[2],'state','reserved','held',ARGV[1],'at',ARGV[2])
 redis.call('ZADD',KEYS[3],ARGV[3],KEYS[2])
 return {1,tostring(balance-tonumber(ARGV[1]))}`;
 export const SETTLE_SCRIPT=`
+if redis.call('EXISTS',KEYS[4])==1 then return {0,0} end
 local state=redis.call('HGET',KEYS[2],'state');if not state then return {-1,0} end
 if state~='reserved' then return {0,tonumber(redis.call('GET',KEYS[1]) or '0')} end
 local held=tonumber(redis.call('HGET',KEYS[2],'held'));local charge=tonumber(ARGV[1]);if charge<0 or charge>held then return {-2,0} end
@@ -62,6 +67,7 @@ export function createLedger(redis,{environment,accountId,requireActiveAccount=f
  if(!['Production','Sandbox'].includes(environment)||!uuid.test(accountId))throw Error('Invalid billing account');
  const root='verio:billing:'+environment.toLowerCase()+':',owner=accountId.toLowerCase(),balanceKey=root+'balance:'+owner;
  const holdsKey=root+'holds:'+owner;
+ const closedKey=root+'closed:'+owner;
  const releaseExpired=async()=>Number(await redis('EVAL',RELEASE_EXPIRED_SCRIPT,2,balanceKey,holdsKey,Date.now()));
  const operationKey=id=>{if(!uuid.test(id))throw Error('Invalid operation');return root+'operation:'+owner+':'+id.toLowerCase()};
  const purchaseKeys=transactionId=>{
@@ -81,6 +87,7 @@ export function createLedger(redis,{environment,accountId,requireActiveAccount=f
    if(!Number.isSafeInteger(signedAt)||signedAt<=0||
       !Number.isInteger(refundedCredits)||refundedCredits<0||refundedCredits>CATALOG.credits)throw Error('Invalid refund');
    const keys=purchaseKeys(transactionId);
+   keys.push(closedKey);
    const result=Number(await redis('EVAL',APPLY_REFUND_SCRIPT,keys.length,...keys,owner,signedAt,refundedCredits));
    if(result<0)throw Error('Refund account mismatch');
    return {applied:result===1};
@@ -89,16 +96,19 @@ export function createLedger(redis,{environment,accountId,requireActiveAccount=f
    const key=operationKey(operationId);
    await releaseExpired();
    const now=Date.now();
-   const [state,detail]=await redis('EVAL',RESERVE_SCRIPT,3,balanceKey,key,holdsKey,quoteFetch().credits,now,now+holdDurationMs);
+   const keys=[balanceKey,key,holdsKey];
+   if(requireActiveAccount)keys.push('verio:identity:account:'+owner);
+   const [state,detail]=await redis('EVAL',RESERVE_SCRIPT,keys.length,...keys,quoteFetch().credits,now,now+holdDurationMs);
+   if(Number(state)===-2)throw Error('This account is unavailable');
    if(Number(state)<0)throw Error('Insufficient credits');
    return {started:Number(state)===1,...(Number(state)===1?{balance:Number(detail)}:{state:detail})};
   },
   async settle(operationId,posts){
-   const [state,balance]=await redis('EVAL',SETTLE_SCRIPT,3,balanceKey,operationKey(operationId),holdsKey,quoteFetch(posts).credits,'settled');
+   const [state,balance]=await redis('EVAL',SETTLE_SCRIPT,4,balanceKey,operationKey(operationId),holdsKey,closedKey,quoteFetch(posts).credits,'settled');
    if(Number(state)<0)throw Error('Credit settlement rejected');return {settled:Number(state)===1,balance:Number(balance)};
   },
   async refundFailedFetch(operationId){
-   const [state,balance]=await redis('EVAL',SETTLE_SCRIPT,3,balanceKey,operationKey(operationId),holdsKey,0,'refunded');
+   const [state,balance]=await redis('EVAL',SETTLE_SCRIPT,4,balanceKey,operationKey(operationId),holdsKey,closedKey,0,'refunded');
    if(Number(state)<0)throw Error('Credit refund rejected');return {refunded:Number(state)===1,balance:Number(balance)};
   },
  };

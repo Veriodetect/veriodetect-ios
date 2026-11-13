@@ -1,0 +1,52 @@
+name: Capture App Store simulator screenshots
+on:
+  push:
+    branches: [feat/live-x-credits]
+    paths: [.github/workflows/simulator-screenshots.yml]
+permissions:
+  contents: read
+jobs:
+  screenshots:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      APP_CHANNEL: release
+      LIVE_X_RELEASE_CREDITS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+      - run: python3 scripts/configure-ios.py
+      - run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/verio-build" CODE_SIGNING_ALLOWED=NO build
+      - name: Capture native Home screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir screenshots
+          xcrun simctl list devices booted
+          xcrun simctl list devices available -j > "$RUNNER_TEMP/devices.json"
+          capture() {
+            local pattern="$1" output="$2" udid
+            udid=$(python3 -c 'import json,re,sys; d=json.load(open(sys.argv[1]))["devices"]; print(next(item["udid"] for runtime,items in reversed(list(d.items())) if "iOS" in runtime for item in items if re.search(sys.argv[2],item["name"],re.I)))' "$RUNNER_TEMP/devices.json" "$pattern")
+            xcrun simctl boot "$udid"
+            xcrun simctl bootstatus "$udid" -b
+            xcrun simctl status_bar "$udid" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState unplugged --batteryLevel 100
+            xcrun simctl install "$udid" "$RUNNER_TEMP/verio-build/Build/Products/Release-iphonesimulator/App.app"
+            xcrun simctl launch "$udid" com.veriodetect.app
+            sleep 5
+            xcrun simctl io "$udid" screenshot "screenshots/$output.png"
+            sips -g pixelWidth -g pixelHeight "screenshots/$output.png"
+            xcrun simctl shutdown "$udid"
+          }
+          capture 'iPad Pro.*13|iPad Pro.*12\.9' 'VerioDetect-iPad-Home'
+          capture '^iPhone (16|17|18) Pro$' 'VerioDetect-iPhone-Home'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veriodetect-simulator-screenshots
+          path: screenshots/
+          if-no-files-found: error
+          retention-days: 14

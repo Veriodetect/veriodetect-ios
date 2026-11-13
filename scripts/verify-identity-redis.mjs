@@ -87,6 +87,14 @@ export async function verifyIdentityRedis(redis){
   assert.equal((await sandbox({...operation,operationId:randomUUID()})).status,502);
   assert.equal(await ledger.balance(),1017);
   assert.equal((await sandbox({action:'delete',confirm:true})).status,409);
+  const pending=await ledger.reserve(randomUUID());
+  assert.equal(pending.started,true);
+  assert.equal((await sandbox({action:'delete',confirm:true,forfeitCredits:true})).status,200);
+  const balanceKey='verio:billing:sandbox:balance:'+sandboxLogin.accountId;
+  assert.equal(await redis('GET',balanceKey),null);
+  await ledger.applyVerifiedRefund('920000001',{signedAt:Date.now(),refundedCredits:1020});
+  assert.equal(await redis('GET',balanceKey),null);
+  await assert.rejects(ledger.creditVerifiedPurchase('920000002'),/claim rejected/);
  }finally{globalThis.fetch=oldFetch;globalThis.Netlify=oldNetlify;}
  console.log('PASS: real Redis one-use Apple nonce, concurrent replay rejection, stable account recovery, encrypted refresh token and session generation invalidation.');
  console.log('PASS: preview HTTP sign-in/status, purchases disabled, deletion confirmation and Apple revocation failure preserves account.');

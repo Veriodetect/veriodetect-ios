@@ -65,8 +65,8 @@ export function installAppleAccount({native,request,accessCode=()=>'',onAccountD
  });
  $('appleAccountDelete').onclick=()=>perform(async()=>{
   if(!session)throw Error('Sign in to your account first.');
-  if(!confirm('Permanently delete this Apple-linked account and revoke its Apple sign-in? Live X access-code registrations are separate.'))return;
-  const result=await api('delete',{confirm:true});if(result.deleted!==true)throw Error('Deletion was not confirmed.');
+  if(!confirm('Permanently delete your Apple-linked account? Any unused Verio Credits will be lost. This does not request a refund from Apple. Live X access-code registrations are separate.'))return;
+  const result=await api('delete',{confirm:true,forfeitCredits:true});if(result.deleted!==true)throw Error('Deletion was not confirmed.');
   await native.clearSession();session='';showPanel('appleAccountSignedOut');onAccountDeleted();status.textContent='Account deleted and Apple sign-in revoked.';
  });
  if(buy){

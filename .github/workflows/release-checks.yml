@@ -2,7 +2,7 @@ name: Release preparation checks
 on:
   pull_request:
   push:
-    branches: [feat/app-store-release-preparation]
+    branches: [feat/app-store-release-preparation, feat/live-x-credits]
 jobs:
   packaging-and-deletion:
     runs-on: ubuntu-latest
@@ -20,8 +20,25 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run verify
+      - run: node scripts/verify-billing.mjs
+      - run: node scripts/verify-apple-identity.mjs
+      - run: node scripts/verify-apple-proof.mjs
+        if: github.ref == 'refs/heads/feat/live-x-credits'
       - run: npm run verify:release
       - run: node scripts/package-backend.mjs
       - run: node scripts/verify-backend-redis.mjs
         env:
           REDIS_TEST_DISPOSABLE: '1'
+  billing-native-compile:
+    if: github.ref == 'refs/heads/feat/live-x-credits'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+      - name: Compile native StoreKit bridge without signing or uploading
+        run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

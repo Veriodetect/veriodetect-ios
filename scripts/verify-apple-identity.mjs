@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,sign,verify} from 'node:crypto';
+import {verifyIdentityToken,appleClientSecret,protectRefreshToken,recoverRefreshToken} from '../billing-candidate/apple-identity.mjs';
+const {privateKey,publicKey}=generateKeyPairSync('rsa',{modulusLength:2048});
+const key={...publicKey.export({format:'jwk'}),kid:'test-key',use:'sig',alg:'RS256'};
+const now=2000000000,nonce='a'.repeat(64),claims={iss:'https://appleid.apple.com',aud:'com.veriodetect.app',sub:'private-apple-subject',nonce,iat:now,exp:now+300};
+const enc=v=>Buffer.from(JSON.stringify(v)).toString('base64url');
+const token=(patch={},header={alg:'RS256',kid:'test-key'})=>{const input=enc(header)+'.'+enc({...claims,...patch});return input+'.'+sign('RSA-SHA256',Buffer.from(input),privateKey).toString('base64url')};
+const result=verifyIdentityToken(token(),{keys:[key],nonce,now});assert.equal(result.subjectHash.length,64);assert(!JSON.stringify(result).includes(claims.sub));
+for(const patch of [{aud:'other-app'},{iss:'https://attacker.invalid'},{nonce:'b'.repeat(64)},{exp:now},{iat:now+120},{iat:now-700},{sub:''}])assert.throws(()=>verifyIdentityToken(token(patch),{keys:[key],nonce,now}));
+assert.throws(()=>verifyIdentityToken(token({}, {alg:'none',kid:'test-key'}),{keys:[key],nonce,now}));
+assert.throws(()=>verifyIdentityToken(token({}, {alg:'RS256',kid:'test-key',jku:'https://attacker.invalid'}),{keys:[key],nonce,now}));
+const forged=token().split('.');forged[1]=enc({...claims,sub:'someone-else'});assert.throws(()=>verifyIdentityToken(forged.join('.'),{keys:[key],nonce,now}));
+const protectedValue=protectRefreshToken('test-refresh-token','1'.repeat(40));assert(!protectedValue.includes('test-refresh-token'));assert.equal(recoverRefreshToken(protectedValue,'1'.repeat(40)),'test-refresh-token');
+assert.throws(()=>recoverRefreshToken(protectedValue,'2'.repeat(40)));assert.throws(()=>protectRefreshToken('x','short'));
+const ec=generateKeyPairSync('ec',{namedCurve:'P-256'}),pem=ec.privateKey.export({format:'pem',type:'pkcs8'});
+const secret=appleClientSecret({privateKey:pem,keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',now});const parts=secret.split('.');
+assert(verify('sha256',Buffer.from(parts[0]+'.'+parts[1]),{key:ec.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(parts[2],'base64url')));
+assert.equal(JSON.parse(Buffer.from(parts[1],'base64url')).exp,now+300);
+for(const formatted of [pem.replace(/\n/g,'\\n'),pem.replace(/\n/g,'\\r\\n'),pem.replace(/\n/g,' ')]){
+ const [header,payload,signature]=appleClientSecret({privateKey:formatted,keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',now}).split('.');
+ assert(verify('sha256',Buffer.from(header+'.'+payload),{key:ec.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'base64url')));
+}
+assert.throws(()=>appleClientSecret({privateKey:'-----BEGIN PRIVATE KEY----- bad -----END PRIVATE KEY-----',keyId:'AAAAAAAAAA',teamId:'BBBBBBBBBB',now}),/private key format is invalid/);
+console.log('PASS: Apple JWT signature/audience/issuer/nonce/time validation, attack rejection, short-lived client secret and authenticated refresh-token encryption.');

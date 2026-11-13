@@ -1,0 +1,38 @@
+name: Pin Apple billing verification dependency
+on:
+  push:
+    branches: [feat/live-x-credits]
+    paths: [.github/workflows/prepare-apple-library.yml]
+permissions:
+  contents: write
+jobs:
+  lock-dependency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/live-x-credits
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install @apple/app-store-server-library@3.1.0 --save-exact --ignore-scripts
+      - name: Download public Apple trust roots
+        run: |
+          mkdir -p billing-candidate/apple-roots
+          curl --fail --silent --show-error https://www.apple.com/appleca/AppleIncRootCertificate.cer | openssl x509 -inform DER -out billing-candidate/apple-roots/AppleIncRootCertificate.pem
+          curl --fail --silent --show-error https://www.apple.com/certificateauthority/AppleRootCA-G2.cer | openssl x509 -inform DER -out billing-candidate/apple-roots/AppleRootCA-G2.pem
+          curl --fail --silent --show-error https://www.apple.com/certificateauthority/AppleRootCA-G3.cer | openssl x509 -inform DER -out billing-candidate/apple-roots/AppleRootCA-G3.pem
+          for cert in billing-candidate/apple-roots/*.pem; do openssl x509 -in "$cert" -noout -subject -fingerprint -sha256; done
+      - name: Check existing app and pricing
+        run: |
+          npm run build
+          npm run verify
+          node scripts/verify-billing.mjs
+      - name: Save resolved lockfile on billing branch only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json billing-candidate/apple-roots
+          git diff --cached --quiet && exit 0
+          git commit -m 'Pin Apple server verification library [skip ci]'
+          git push origin HEAD:feat/live-x-credits

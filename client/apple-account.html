@@ -1,0 +1,20 @@
+<section class="card detail-section" aria-label="Live X account preview">
+ <h3>Live X account preview</h3>
+ <p>Try Apple sign-in for future Live X credit recovery. Local analysis needs no account, and this preview has no charges.</p>
+ <p id="appleAccountStatus" role="status">Checking account…</p>
+ <div id="appleAccountSignedOut" hidden>
+  <button type="button" id="appleAccountSignIn" class="primary">Sign in with Apple</button>
+ </div>
+ <div id="appleAccountSignedIn" hidden>
+  <button type="button" id="appleAccountSignOut" class="secondary">Sign out</button>
+  <!-- SANDBOX_CREDITS -->
+  <details>
+   <summary>Manage preview account</summary>
+   <p>Deleting this preview account leaves your beta access registration unchanged.</p>
+   <button type="button" id="appleAccountDelete" class="secondary">Delete preview account</button>
+  </details>
+ </div>
+ <div id="appleAccountRetry" hidden>
+  <button type="button" id="appleAccountRefresh" class="secondary">Retry account check</button>
+ </div>
+</section>

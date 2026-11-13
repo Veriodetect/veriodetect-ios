@@ -12,10 +12,11 @@
     "package:backend": "node scripts/package-backend.mjs"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "3.1.0",
+    "@capacitor/clipboard": "8.0.0",
     "@capacitor/core": "8.4.1",
     "@capacitor/ios": "8.4.1",
     "@capacitor/share": "8.0.0",
-    "@capacitor/clipboard": "8.0.0",
     "fflate": "0.8.2"
   },
   "devDependencies": {

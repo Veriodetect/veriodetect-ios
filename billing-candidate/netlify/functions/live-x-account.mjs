@@ -11,7 +11,7 @@ const accountHosts=new Map([
  ['https://veriodetectbeta.netlify.app',{environment:'Production',flag:'APPLE_PRODUCTION_CREDITS_ENABLED'}],
 ]);
 export default async req=>{
- if(req.method!=='POST')return response({error:'Method not allowed',revision:'sandbox-credits-1'},405);
+ if(req.method!=='POST')return response({error:'Method not allowed',revision:'credits-deletion-2'},405);
  const host=accountHosts.get(new URL(req.url).origin);
  if(!host||env(host.flag)!=='1')return response({error:'Apple account service is not enabled.'},503);
  const {environment}=host;
@@ -68,19 +68,21 @@ export default async req=>{
   if(body.action==='delete'){
    if(body.confirm!==true)return response({error:'Confirm account deletion.'},400);
    // Preview cannot accept purchases. Refuse erasure if any future paid balance exists.
-   for(const mode of ['sandbox','production'])if(Number(await redis('GET',`verio:billing:${mode}:balance:${identity.accountId}`)||0)!==0)return response({error:'Credit-account deletion is not available in this preview.'},409);
+   const billingRoot='verio:billing:'+environment.toLowerCase()+':';
+   const balanceKey=billingRoot+'balance:'+identity.accountId;
+   const holdsKey=billingRoot+'holds:'+identity.accountId;
    const key='verio:identity:account:'+identity.accountId,raw=await redis('GET',key);
    if(!raw)return response({error:'Account no longer exists.'},401);
    const account=JSON.parse(raw);
    // Stop new sessions before revoking at Apple. Failed revocation remains retryable.
-   const lease=randomUUID(),started=await redis('EVAL',"if redis.call('EXISTS',KEYS[2],KEYS[3])>0 then return -1 end;local r=redis.call('GET',KEYS[1]);if not r then return 0 end;local a=cjson.decode(r);if a.state=='deleting' and tonumber(a.deleteAt or 0)>tonumber(ARGV[2])-60000 then return 0 end;a.state='deleting';a.deleteLease=ARGV[1];a.deleteAt=tonumber(ARGV[2]);redis.call('SET',KEYS[1],cjson.encode(a));return 1",3,key,'verio:billing:sandbox:balance:'+identity.accountId,'verio:billing:production:balance:'+identity.accountId,lease,Date.now());
-   if(Number(started)===-1)return response({error:'Credit-account deletion is not available in this preview.'},409);
+   const lease=randomUUID(),started=await redis('EVAL',"if ARGV[3]~='yes' and redis.call('EXISTS',KEYS[2])==1 then return -1 end;local r=redis.call('GET',KEYS[1]);if not r then return 0 end;local a=cjson.decode(r);if a.state=='deleting' and tonumber(a.deleteAt or 0)>tonumber(ARGV[2])-60000 then return 0 end;a.state='deleting';a.deleteLease=ARGV[1];a.deleteAt=tonumber(ARGV[2]);redis.call('SET',KEYS[1],cjson.encode(a));return 1",2,key,balanceKey,lease,Date.now(),body.forfeitCredits===true?'yes':'no');
+   if(Number(started)===-1)return response({error:'Update the app to confirm deletion of your credit account.'},409);
    if(Number(started)!==1)return response({error:'Deletion is already in progress. Please retry in one minute.'},409);
    try{await revokeAppleToken(recoverRefreshToken(account.refreshToken,configuration.tokenSecret),configuration)}catch{
     await redis('EVAL',"local r=redis.call('GET',KEYS[1]);if r then local a=cjson.decode(r);if a.deleteLease==ARGV[1] then a.state='active';a.deleteLease=nil;a.deleteAt=nil;redis.call('SET',KEYS[1],cjson.encode(a)) end end;return 1",1,key,lease);
     return response({error:'Apple revocation could not be completed. Your account was kept; please retry.'},503);
    }
-   const removed=await redis('EVAL',"local r=redis.call('GET',KEYS[1]);if not r then return 1 end;local a=cjson.decode(r);if a.deleteLease~=ARGV[1] then return 0 end;redis.call('DEL',KEYS[1],KEYS[2],KEYS[3]);return 1",3,key,'verio:identity:subject:'+account.subjectHash,'verio:identity:session:'+await sha(session),lease);
+   const removed=await redis('EVAL',"local r=redis.call('GET',KEYS[1]);if not r then return 1 end;local a=cjson.decode(r);if a.deleteLease~=ARGV[1] then return 0 end;redis.call('SET',KEYS[6],'1');redis.call('DEL',KEYS[1],KEYS[2],KEYS[3],KEYS[4],KEYS[5]);return 1",6,key,'verio:identity:subject:'+account.subjectHash,'verio:identity:session:'+await sha(session),balanceKey,holdsKey,billingRoot+'closed:'+identity.accountId,lease);
    if(Number(removed)!==1)throw Error('Deletion lease changed');
    return response({deleted:true});
   }
